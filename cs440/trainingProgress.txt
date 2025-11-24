@@ -1,0 +1,10 @@
+Moves: 50000 | Games: 0 | Wins: 0 | Losses: 0 | Ties: 0 | WinRate: 0.000 | Epsilon: 1.000
+Moves: 100000 | Games: 0 | Wins: 0 | Losses: 0 | Ties: 0 | WinRate: 0.000 | Epsilon: 1.000
+Moves: 150000 | Games: 0 | Wins: 0 | Losses: 0 | Ties: 0 | WinRate: 0.000 | Epsilon: 1.000
+Moves: 200000 | Games: 0 | Wins: 0 | Losses: 0 | Ties: 0 | WinRate: 0.000 | Epsilon: 1.000
+Moves: 250000 | Games: 0 | Wins: 0 | Losses: 0 | Ties: 0 | WinRate: 0.000 | Epsilon: 1.000
+Moves: 50000 | Games: 0 | Wins: 0 | Losses: 0 | Ties: 0 | WinRate: 0.000 | Epsilon: 1.000
+Moves: 100000 | Games: 0 | Wins: 0 | Losses: 0 | Ties: 0 | WinRate: 0.000 | Epsilon: 1.000
+Moves: 150000 | Games: 0 | Wins: 0 | Losses: 0 | Ties: 0 | WinRate: 0.000 | Epsilon: 1.000
+Moves: 200000 | Games: 0 | Wins: 0 | Losses: 0 | Ties: 0 | WinRate: 0.000 | Epsilon: 1.000
+Moves: 250000 | Games: 0 | Wins: 0 | Losses: 0 | Ties: 0 | WinRate: 0.000 | Epsilon: 1.000

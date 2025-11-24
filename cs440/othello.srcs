@@ -1,0 +1,3 @@
+src/pas/othello/heuristics/Heuristics.java
+src/pas/othello/ordering/MoveOrderer.java
+src/pas/othello/agents/OthelloAgent.java

@@ -1,0 +1,3 @@
+src/labs/scripted/agents/ScriptedAgent.java
+src/labs/scripted/agents/ZigZagAgent.java
+src/labs/scripted/agents/ClosestUnitAgent.java

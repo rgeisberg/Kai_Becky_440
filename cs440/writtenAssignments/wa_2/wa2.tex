@@ -1,0 +1,223 @@
+\documentclass[11pt]{article}
+
+\usepackage{amsfonts}
+%\usepackage{geometry}
+\usepackage[paper=a4paper, 
+            left=20.0mm, right=20.0mm, 
+            top=25.0mm, bottom=25.0mm]{geometry}
+\pagestyle{empty}
+\usepackage{graphicx}
+\usepackage{fancyhdr, lastpage, bbding, pmboxdraw}
+\usepackage[usenames,dvipsnames]{color}
+\definecolor{darkblue}{rgb}{0,0,.6}
+\definecolor{darkred}{rgb}{.7,0,0}
+\definecolor{darkgreen}{rgb}{0,.6,0}
+\definecolor{red}{rgb}{.98,0,0}
+\usepackage[colorlinks,pagebackref,pdfusetitle,urlcolor=darkblue,citecolor=darkblue,linkcolor=darkred,bookmarksnumbered,plainpages=false]{hyperref}
+\renewcommand{\thefootnote}{\fnsymbol{footnote}}
+
+\pagestyle{fancyplain}
+\fancyhf{}
+\lhead{ \fancyplain{}{Course Name} }
+%\chead{ \fancyplain{}{} }
+\rhead{ \fancyplain{}{\today} }
+%\rfoot{\fancyplain{}{page \thepage\ of \pageref{LastPage}}}
+\fancyfoot[RO, LE] {Page \thepage\ of \textcolor{black}{\pageref{LastPage}} }
+\thispagestyle{plain}
+
+%%%%%%%%%%%% LISTING %%%
+\usepackage{listings}
+\usepackage{caption}
+\usepackage{subcaption}
+\DeclareCaptionFont{white}{\color{white}}
+\DeclareCaptionFormat{listing}{\colorbox{gray}{\parbox{\textwidth}{#1#2#3}}}
+\captionsetup[lstlisting]{format=listing,labelfont=white,textfont=white}
+\usepackage{verbatim} % used to display code
+\usepackage{fancyvrb}
+\usepackage{acronym}
+\usepackage{amsthm, amsmath}
+\usepackage{tikz}
+    \usetikzlibrary{calc, arrows, arrows.meta, positioning}
+\usepackage{amssymb,amsmath,stackengine}
+\stackMath
+\usepackage{ifthen}
+\usepackage{enumitem}
+
+\VerbatimFootnotes % Required, otherwise verbatim does not work in footnotes!
+
+\definecolor{OliveGreen}{cmyk}{0.64,0,0.95,0.40}
+\definecolor{CadetBlue}{cmyk}{0.62,0.57,0.23,0}
+\definecolor{lightlightgray}{gray}{0.93}
+
+\lstset{
+	%language=bash,                          % Code langugage
+	basicstyle=\ttfamily,                   % Code font, Examples: \footnotesize, \ttfamily
+	keywordstyle=\color{OliveGreen},        % Keywords font ('*' = uppercase)
+	commentstyle=\color{gray},              % Comments font
+	numbers=left,                           % Line nums position
+	numberstyle=\tiny,                      % Line-numbers fonts
+	stepnumber=1,                           % Step between two line-numbers
+	numbersep=5pt,                          % How far are line-numbers from code
+	backgroundcolor=\color{lightlightgray}, % Choose background color
+	frame=none,                             % A frame around the code
+	tabsize=2,                              % Default tab size
+	captionpos=t,                           % Caption-position = bottom
+	breaklines=true,                        % Automatic line breaking?
+	breakatwhitespace=false,                % Automatic breaks only at whitespace?
+	showspaces=false,                       % Dont make spaces visible
+	showtabs=false,                         % Dont make tabls visible
+	columns=flexible,                       % Column format
+	morekeywords={__global__, __device__},  % CUDA specific keywords
+}
+
+\newcommand{\question}[1]{\section*{\normalsize #1}}
+% \newcommand{\mat}[1]{\begin{bmatrix}#1\end{bmatrix}}
+% \newcommand{\extraspace}[]{
+%     \begin{center}
+%         \textbf{Use this page for extra space.}
+%     \end{center}
+% }
+
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+%\DeclareMathOperator*{\vec}[1]{\textbf{#1}}
+
+\newcommand{\squig}{{\scriptstyle\sim\mkern-3.9mu}}
+\newcommand{\lsquigend}{{\scriptstyle\lhd\mkern-3mu}}
+\newcommand{\rsquigend}{{\scriptstyle\rule{.1ex}{0ex}\rhd}}
+\newcounter{sqindex}
+\newcommand\squigs[1]{%
+  \setcounter{sqindex}{0}%
+  \whiledo {\value{sqindex}< #1}{\addtocounter{sqindex}{1}\squig}%
+}
+\newcommand\rsquigarrow[2]{%
+  \mathbin{\stackon[2pt]{\squigs{#2}\rsquigend}{\scriptscriptstyle\text{#1\,}}}%
+}
+\newcommand\lsquigarrow[2]{%
+  \mathbin{\stackon[2pt]{\lsquigend\squigs{#2}}{\scriptscriptstyle\text{\,#1}}}%
+}
+
+
+\begin{document}
+\begin{center}
+    {\Large \textsc{Written Assignment 2}}
+\end{center}
+\begin{center}
+    Due: Friday 10/17/2025 @ 11:59pm EST
+\end{center}
+
+\section*{\textbf{Disclaimer}}
+I encourage you to work together, I am a firm believer that we are at our best (and learn better) when we communicate with our peers. Perspective is incredibly important when it comes to solving problems, and sometimes it takes talking to other humans (or rubber ducks in the case of programmers) to gain a perspective we normally would not be able to achieve on our own. The only thing I ask is that you report who you work with: this is \textbf{not} to punish anyone, but instead will help me figure out what topics I need to spend extra time on/who to help. When you turn in your solutions (please use some form of typesetting: do \textbf{NOT} turn in handwritten solutions), please note who you worked with at the very beginning of the pdf.\newline
+
+
+
+
+
+
+
+
+
+
+
+
+\question{Question 1: Correctness of Alpha-Beta Pruning (25 points)}
+Let $s$ be the state of the game, and assume that the game tree has a finite number of vertices. Let $v$ be the value produced by the minimax algorithm:
+$$v = \texttt{Minimax}(s)$$
+
+\noindent Let $v'$ be the result of running Alpha-Beta Pruning on $s$ with some initial values of $\alpha$ and $\beta$ (where $-\infty\le \alpha\le\beta\le+\infty$):
+$$v' = \texttt{Alpha-Beta-Pruning}(s, \alpha, \beta)$$
+
+\noindent Prove that the following statements are true:
+\begin{itemize}
+    \item If $\alpha \le v \le \beta$ then $v' = v$
+    \item If $v\le \alpha$ then $v'\le \alpha$
+    \item If $v \ge \beta$ then $v'\ge \beta$
+\end{itemize}
+
+\noindent This means that if the true minimax value is between $\alpha$ and $\beta$, then Alpha-Beta pruning returns the correct value. However, if the tru minimax value if outside of this range, then Alpha-Beta pruning may return a different value. However, the incorrect value that Alpha-Beta pruning returns is bounded in the same manner that the true minimax value is (i.e. if the true minimax value is $\le \alpha$ then the value produced by Alpha-Beta pruning is also $\le \alpha$ and vice versa). Note that this implies that Alpha-Beta pruning will be correct with initial values of $(-\infty, +\infty)$ for $(\alpha, \beta)$.\newline\newline
+
+\noindent Hint: use induction. If $s$ is not a terminal state, then you can correctly assume that the claim above holds for all children of $s$. Use this assumption to prove that it also holds for $s$ (the base case is trivial: minimax and Alpha-Beta pruning produce the same value for terminal states)\newline
+
+\noindent\textbf{Note:} this is a \textbf{proof} question, meaning you must follow formal proof structure (see the examples on piazza for guidance).\newpage
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\question{Question 2: Oracle-Advised Two-Player Zero-Sum Adversarial-Search  (25 points)}
+In deterministic adversarial search, we have to expand a game tree where nodes are either MAX (our turn to go) or MIN (our opponent's turn to go). This leads us to the Minimax algorithm, where we have to account for our opponents agency, and single-player solutions are not sophisticated enough to account for this agency. Imagine we have access to an oracle $O(s)$. This oracle takes a state as input and returns our opponent's optimal move (for them) if they were allowed to go in that state. This is called an oracle because it is never wrong, whenever we use the oracle it returns our opponent's optimal action 100\% of the time.\newline
+
+\noindent Assume the game is deterministic. Design an algorithm to turn this two-player game into a single player game that calculates the optimal move we should make and prove its correctness.\newline
+
+\noindent\textbf{Note:} this is a \textbf{proof} question, meaning you must follow formal proof structure (see the examples on piazza for guidance).
+\newpage
+
+
+
+
+
+
+
+
+
+
+
+\question{Question 3: Optimizing the AC3-algorithm (25 points)}
+The AC3 algorithm, whenever \textit{any} value is deleted from the domain of variable $X_i$, puts \textit{every} arc $(X_k, X_i)$, even if each value of $X_k$ is consistent with several remaining values of $X_i$. What if we stored, for every arc $(X_k, X_i)$, the number of remaining values of $X_i$ that are consistent with each value of $X_k$. Derive a way to update these numbers efficiently, and arrive at the conclusion that with this modification, arc consistency can be enforced with total runtime $O(n^2d^2)$.\newline
+
+\noindent\textbf{Note:} this is a \textbf{proof} question, meaning you must follow formal proof structure (see the examples on piazza for guidance).\newpage
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\question{Question 4: CSP Reduction (25 points)}
+Prove that any n-ary constraint can be converted into a set of binary constraints. Therefore, show that all CSPs can be converted into binary CSPs (and therefore we only need to worry about designing algorithms to process binary CSPs).\newline\newline\newline
+
+\noindent Hint: When reducing a n-ary constraint: consider adding synthetic variable(s) (i.e. inventing new variables). Each synthetic variable should have a domain that comes from the cartesian product of the domains of the original variables involved in that constraint. We can then replace the original constraint with a set of binary constraints, where the original variables must match elements of the synthetic domain's value.\newline
+
+\noindent\textbf{Note:} this is a \textbf{proof} question, meaning you must follow formal proof structure (see the examples on piazza for guidance).
+\newpage
+
+
+
+
+
+
+
+\question{Extra Credit: Creating Crossword Puzzles (25 points)}
+Consider the problem of building a crossword puzzle (\textbf{creating} the crossword puzzle, \textbf{not} solving it). A crossword puzzle is defined as fitting words into a rectangular grid. The grid itself is given as part of the problem and specifies which squares are blank (and may be filled), and which are shaded (and therefore unavailable). You have at your disposal a list of words (i.e. a dictionary), and the task is to fill in the blank squares by using any subset of the list. Formulate this problem as:
+
+\begin{enumerate}[label=\alph*]
+    \item A general search problem. Choose an appropriate search algorithm and specify a heuristic function. Is it better to fill in blanks one letter at a time or one word at a time?
+    \item A CSP. Should the variables be words or letters?
+    \item Which formulation is better? Why?
+\end{enumerate}
+
+\noindent\textbf{Note:} this is \textbf{not} a proof question, meaning you do \textbf{not} have to follow formal proof structure for this question. English justification is fine.
+\newpage
+
+
+
+\end{document}
+

@@ -1,0 +1,4 @@
+src/labs/rttt/heuristics/Heuristics.java
+src/labs/rttt/ordering/MoveOrderer.java
+src/labs/rttt/agents/DepthThresholdedMinimaxAgent.java
+src/labs/rttt/agents/DepthThresholdedAlphaBetaAgent.java
