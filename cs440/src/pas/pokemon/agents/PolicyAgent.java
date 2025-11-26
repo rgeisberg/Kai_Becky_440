@@ -82,7 +82,7 @@ public class PolicyAgent
     @Override
     public Model initModel() {
 
-        // HELPFUL TIPS TO REMEMBER 😺
+        // HELPFUL TIPS TO REMEMBER
         // The number of layers corresponds to how complicated the function is that you
         // need to learn
         //
@@ -356,7 +356,7 @@ public class PolicyAgent
     private boolean lastGameWasCounted = false;
 
     private double currentEpsilon() {
-        // fraction goes from 0 → 1 as we move through 70% of training
+        // fraction goes from 0 to 1 as we move through 70% of training
         double fraction = Math.min(1.0, (double) episodesDone / (0.7 * maxEpisodes));
         return epsilonStart + fraction * (epsilonEnd - epsilonStart);
     }

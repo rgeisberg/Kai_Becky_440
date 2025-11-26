@@ -86,7 +86,7 @@ public class CustomRewardFunction
             final BattleView nextState) {
 
         // ----------------- List of OG/Pre move stats------------------------
-        // original HP of active Pokémon on each side
+        // original HP of active Pokemon on each side
         int originalMyHP = state.getTeam1View()
                 .getActivePokemonView()
                 .getCurrentStat(Stat.HP);
@@ -151,7 +151,7 @@ public class CustomRewardFunction
         }
         // -------------------------------------------
 
-        // ----- damage reward for active Pokémon -----
+        // ----- damage reward for active Pokemon -----
         int newMyHP = nextState.getTeam1View()
                 .getActivePokemonView()
                 .getCurrentStat(Stat.HP);
@@ -169,7 +169,7 @@ public class CustomRewardFunction
         double damageReward = oppHPDamageExp - myHPDamageExp;
 
         // ----- combine terms into a single reward -----
-        // weights are hyperparameters – tweak as you like
+        // weights are hyperparameters tweak as you like
         double reward = winnerReward + 0.5 * damageReward + 20.0 * koReward + 10.0 * teamHPReward + 5.0 * statusReward;
         reward = Math.max(-100.0, Math.min(100.0, reward)); // I dont know if this is a legit way to do this tbh
 
