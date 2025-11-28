@@ -108,7 +108,7 @@ public class CustomSensorArray
             normalized.set(idx, 0, sensorValues.get(idx, 0) / 15.0);
             idx++;
             // Type 2: handle the -1 for no second type case
-            normalized.set(idx, 0, sensorValues.get(idx, 0) / 15.0);
+            normalized.set(idx, 0, Math.max(sensorValues.get(idx, 0), 0) / 15.0);
             idx++;
 
             // Stats (8 stats): normalize to [0, 1] max stat assuming 600 max (might need to

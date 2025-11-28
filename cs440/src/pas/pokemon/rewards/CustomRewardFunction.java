@@ -40,14 +40,14 @@ public class CustomRewardFunction
 
     // ------------------------- Helpers for Rewards----------------------------
     private double teamHPFraction(TeamView team) {
-        double sum = 0.0;
+        double totalCurrentHP = 0.0;
+        double totalBaseHP = 0.0;
         for (int i = 0; i < 6; i++) {
             PokemonView view = team.getPokemonView(i);
-            int cur = view.getCurrentStat(Stat.HP);
-            int max = view.getBaseStat(Stat.HP);
-            sum += (double) cur / max;
+            totalCurrentHP += view.getCurrentStat(Stat.HP);
+            totalBaseHP += view.getBaseStat(Stat.HP);
         }
-        return sum; // in [0, teamSize]
+        return totalCurrentHP / totalBaseHP; // in [0, teamSize]
     }
 
     private int countFainted(TeamView teamView) {
@@ -65,7 +65,7 @@ public class CustomRewardFunction
         for (int i = 0; i < 6; i++) {
             PokemonView view = team.getPokemonView(i);
             NonVolatileStatus status = view.getNonVolatileStatus();
-            if (status != NonVolatileStatus.NONE) { // whatever the API gives you
+            if (status != NonVolatileStatus.NONE) {
                 score++;
             }
         }
@@ -169,8 +169,19 @@ public class CustomRewardFunction
         double damageReward = oppHPDamageExp - myHPDamageExp;
 
         // ----- combine terms into a single reward -----
-        // weights are hyperparameters tweak as you like
-        double reward = winnerReward + 0.5 * damageReward + 20.0 * koReward + 10.0 * teamHPReward + 5.0 * statusReward;
+
+        damageReward = Math.max(-200.0, Math.min(200.0, damageReward));
+        koReward = Math.max(-1.0, Math.min(1.0, koReward));
+        teamHPReward = Math.max(-2.0, Math.min(2.0, teamHPReward));
+        statusReward = Math.max(-6.0, Math.min(6.0, statusReward));
+        // then combine with weights
+        double reward = 0.0;
+        if (winnerReward != 0) {
+            reward = winnerReward;
+        } else {
+            reward = 0.25 * damageReward + 20.0 * koReward + 5.0 * teamHPReward + statusReward;
+        }
+
         reward = Math.max(-100.0, Math.min(100.0, reward)); // I dont know if this is a legit way to do this tbh
 
         return reward;
