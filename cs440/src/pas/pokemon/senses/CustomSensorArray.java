@@ -125,9 +125,9 @@ public class CustomSensorArray
         // Move type: normalize to [0, 1] for 15 types
         normalized.set(idx, 0, sensorValues.get(idx, 0) / 15.0);
         idx++;
-        // Base power: normalize to [0, 1] hyper beam (strongest raw power move) has 150
+        // Base power: normalize to [0, 1] the one hit kill low acc moves have 250
         // power
-        normalized.set(idx, 0, sensorValues.get(idx, 0) / 150.0);
+        normalized.set(idx, 0, sensorValues.get(idx, 0) / 250.0);
         idx++;
         // Accuracy: normalize to [0, 1] i think accuracy can go above 100 but not sure
         // for gen 1
