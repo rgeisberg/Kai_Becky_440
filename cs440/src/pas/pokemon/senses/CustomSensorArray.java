@@ -11,10 +11,15 @@ import edu.bu.pas.pokemon.core.Team.TeamView;
 import edu.bu.pas.pokemon.linalg.Matrix;
 import edu.bu.pas.pokemon.core.enums.Type;
 import edu.bu.pas.pokemon.core.enums.Stat;
+import edu.bu.pas.pokemon.core.DamageEquation;
+import edu.bu.pas.pokemon.core.Move;
+import edu.bu.pas.pokemon.core.Pokemon;
 import java.util.List;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import edu.bu.pas.pokemon.core.callbacks.Callback;
+import edu.bu.pas.pokemon.core.enums.Target;
 
 public class CustomSensorArray
         extends SensorArray {
@@ -38,119 +43,190 @@ public class CustomSensorArray
         return Type.getEffectivenessModifier(attackType, defendType);
     }
 
+    public Pokemon viewToPokemon(PokemonView pv) {
+        Type[] types = new Type[2];
+        types[0] = pv.getCurrentType1();
+        types[1] = pv.getCurrentType2();
+
+        int[] ivs = new int[6];
+        Stat[] stats = Stat.values();
+        for (Stat st : stats) {
+            if (st == Stat.ACC || st == Stat.EVASIVE) {
+                continue;
+            }
+            ivs[st.ordinal()] = pv.getIV(st);
+        }
+
+        int[] evs = new int[6];
+        for (Stat st : stats) {
+            if (st == Stat.ACC || st == Stat.EVASIVE) {
+                continue;
+            }
+            evs[st.ordinal()] = pv.getEV(st);
+        }
+
+        int[] basestats = new int[8];
+        for (Stat st : stats) {
+            basestats[st.ordinal()] = pv.getBaseStat(st);
+        }
+
+        Pokemon mon = Pokemon.makeNewPokemon(
+                pv.getDexIdx(),
+                pv.getName(),
+                types,
+                pv.getLevel(),
+                ivs,
+                evs,
+                basestats);
+        return mon;
+    }
+
     public double[] encodeMove(MoveView move, PokemonView myPokemon, PokemonView oppPokemon) {
-        // Encode move with 6 features:
-        // 1. Type (ordinal)
-        // 2. Base power
-        // 3. Effective accuracy (base accuracy adjusted by opponent Evasive)
-        // 4. Category (ordinal)
-        // 5. Type effectiveness multiplier
-        // 6. STAB indicator (1.0 if move type matches pokemon type, 0.0 otherwise)
 
-        double[] encoded = new double[6];
+        double[] encoded = new double[2];
+        Move real_move = new Move(move);
+        Pokemon real_myPokemon = viewToPokemon(myPokemon);
+        Pokemon real_oppPokemon = viewToPokemon(oppPokemon);
+        Type myMoveType = move.getType();
+        Type opType1 = oppPokemon.getCurrentType1();
+        Type opType2 = oppPokemon.getCurrentType2();
 
-        // 1. Move type
-        encoded[0] = move.getType().ordinal();
+        // double typeMult = 1;
 
-        // 2. Base power
-        if (move.getPower() == null) {
-            encoded[1] = 0;
-        } else {
-            encoded[1] = move.getPower();
+        // typeMult *= getTypeEffectiveness(myMoveType, opType1);
+        // if (opType2 != null) {
+        // typeMult *= getTypeEffectiveness(myMoveType, opType2);
+        // }
+
+        boolean STAB = false;
+
+        if (myMoveType == myPokemon.getCurrentType1()) {
+            STAB = true;
+        } else if (myPokemon.getCurrentType2() != null && myMoveType == myPokemon.getCurrentType2()) {
+            STAB = true;
         }
 
-        // 3. Effective accuracy (base accuracy - opponent Evasive boost)
+        int damage = DamageEquation.calculateDamage(
+                real_move,
+                1,
+                real_myPokemon,
+                real_oppPokemon,
+                STAB,
+                true,
+                0,
+                0.925);
 
-        if (move.getAccuracy() == null) {
-            encoded[2] = 120;
-        } else {
-            Integer baseAccuracy = move.getAccuracy();
-            Integer oppEvasive = oppPokemon.getCurrentStat(Stat.EVASIVE);
-            encoded[2] = baseAccuracy - oppEvasive;
-        }
+        double accuracy = real_move.getAccuracy() / 100.0;
+        double baseDamage = damage / 0.925;
 
-        // 4. Category
-        encoded[3] = move.getCategory().ordinal();
+        // variance of uniform(0.85, 1.0)
+        double varR = (0.15 * 0.15) / 12.0;
 
-        // 5. Type effectiveness multiplier
-        Type moveType = move.getType();
-        Type oppType1 = oppPokemon.getCurrentType1();
-        Type oppType2 = oppPokemon.getCurrentType2();
-        double effectiveness = getTypeEffectiveness(moveType, oppType1);
-        if (oppType2 != null) {
-            effectiveness *= getTypeEffectiveness(moveType, oppType2);
-        }
-        encoded[4] = effectiveness;
+        double varHit = baseDamage * baseDamage * varR;
 
-        // 6. STAB (same type attack boost) indicator
-        Type myType1 = myPokemon.getCurrentType1();
-        Type myType2 = myPokemon.getCurrentType2();
-        boolean hasSTAB = moveType.equals(myType1) || (myType2 != null && moveType.equals(myType2));
-        encoded[5] = hasSTAB ? 1.0 : 0.0;
-
+        double damageExpectation = (double) damage * accuracy;
+        double damageVariance = accuracy * varHit + accuracy * (1.0 - accuracy) * (damage * damage);
+        encoded[0] = damageExpectation;
+        encoded[1] = damageVariance;
         return encoded;
     }
 
     public Matrix normalizeSensorValues(final Matrix sensorValues) {
-        Matrix normalized = Matrix.zeros(sensorValues.getShape().getNumRows(), sensorValues.getShape().getNumCols());
+        int rows = sensorValues.getShape().getNumRows();
+        int cols = sensorValues.getShape().getNumCols();
 
-        int idx = 0;
-        // Normalize each feature to the range [0, 1] as appropriate
+        Matrix normalized = Matrix.zeros(rows, cols);
 
-        // Active indices (0-5) -> normalize to [0, 1]
-        normalized.set(idx, 0, sensorValues.get(idx, 0) / 5.0);
-        idx++;
-        normalized.set(idx, 0, sensorValues.get(idx, 0) / 5.0);
-        idx++;
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                double v = sensorValues.get(r, c);
+                double nv = v;
 
-        for (int p = 0; p < 12; p++) {
-            // Type 1: normalize to [0, 1] there are 15 types
-            normalized.set(idx, 0, sensorValues.get(idx, 0) / 15.0);
-            idx++;
-            // Type 2: handle the -1 for no second type case
-            normalized.set(idx, 0, sensorValues.get(idx, 0) / 15.0);
-            idx++;
+                switch (c) {
+                    // 0: myAttackRatio
+                    // 1: mySAttackRatio
+                    // 5: oppAttackRatio
+                    // 6: oppSAttackRatio
+                    // Ratios are usually not huge, scale to about [0,1]
+                    case 0:
+                    case 1:
+                    case 5:
+                    case 6:
+                        nv = v / 4.0; // assume ratios rarely > 4
+                        break;
 
-            // Stats (8 stats): normalize to [0, 1] max stat assuming 600 max (might need to
-            // adjust as there can be edge cases)
-            // might want to do different normalization for different levels or stats or
-            // both but ig this is ok for now
-            for (int s = 0; s < 8; s++) {
-                normalized.set(idx, 0, sensorValues.get(idx, 0) / 600.0);
-                idx++;
+                    // 2: mySpeed
+                    // 7: oppSpeed
+                    // Typical speeds ~0–200
+                    case 2:
+                    case 7:
+                        nv = v / 200.0;
+                        break;
+
+                    // 3: myHP
+                    // 8: oppHP
+                    // HP often in 0–400 range
+                    case 3:
+                    case 8:
+                        nv = v / 400.0;
+                        break;
+
+                    // 4: myAliveCount
+                    // 9: oppAliveCount
+                    // In [0, 6]
+                    case 4:
+                    case 9:
+                        nv = v / 6.0;
+                        break;
+
+                    // 10: move damage expectation
+                    // Roughly similar to HP/damage, scale like HP
+                    case 10:
+                        nv = v / 400.0;
+                        break;
+
+                    // 11: move damage variance
+                    // Can be big; scale more aggressively
+                    case 11:
+                        nv = v / 40000.0;
+                        break;
+
+                    default:
+                        // Fallback: no scaling
+                        nv = v;
+                        break;
+                }
+
+                // Clamp to [-1, 1] to avoid exploding values
+                if (nv > 1.0) {
+                    nv = 1.0;
+                } else if (nv < -1.0) {
+                    nv = -1.0;
+                }
+
+                normalized.set(r, c, nv);
             }
         }
 
-        // Move encoding (6 features)
-        // Move type: normalize to [0, 1] for 15 types
-        normalized.set(idx, 0, sensorValues.get(idx, 0) / 15.0);
-        idx++;
-        // Base power: normalize to [0, 1] the one hit kill low acc moves have 250
-        // power
-        normalized.set(idx, 0, sensorValues.get(idx, 0) / 250.0);
-        idx++;
-        // Accuracy: normalize to [0, 1] i think accuracy can go above 100 but not sure
-        // for gen 1
-        normalized.set(idx, 0, sensorValues.get(idx, 0) / 120.0);
-        idx++;
-        // Category: normalize to [0, 1] (3 categories: 0-2)
-        normalized.set(idx, 0, sensorValues.get(idx, 0) / 2.0);
-        idx++;
-        // Effectiveness: normalize to [0, 1] (max 4x)
-        normalized.set(idx, 0, sensorValues.get(idx, 0) / 4.0);
-        idx++;
-        // STAB: already [0, 1]
-        normalized.set(idx, 0, sensorValues.get(idx, 0));
-        idx++;
         return normalized;
+    }
+
+    private int countFainted(TeamView teamView) {
+        int numFainted = 0;
+        for (int i = 0; i < 6; i++) {
+            if (teamView.getPokemonView(i).hasFainted()) {
+                numFainted += 1;
+            }
+        }
+        return numFainted;
     }
 
     public Matrix getSensorValues(final BattleView state, final MoveView action) {
 
-        int numfeatures = 128;
+        int numfeatures = 12;
 
         // matrix for features
-        Matrix sensorValues = Matrix.zeros(numfeatures, 1);
+        Matrix sensorValues = Matrix.zeros(1, numfeatures);
 
         // get the team views
         TeamView myTeam = state.getTeamView(0);
@@ -160,63 +236,63 @@ public class CustomSensorArray
         int myActivePokemonIndex = myTeam.getActivePokemonIdx();
         int oppActivePokemonIndex = oppTeam.getActivePokemonIdx();
 
-        // store active indices as features
-        sensorValues.set(0, 0, myActivePokemonIndex);
-        sensorValues.set(1, 0, oppActivePokemonIndex);
-
-        // get stats enum
-        Stat[] statsEnum = Stat.values();
-
-        // process all pokemon stats and types for my team (6 pokemon x 10 features =
-        // 60)
-        // each pokemon: 2 types + 8 stats
-        int sensorIdx = 2;
-        for (int i = 0; i < myTeam.size(); i++) {
-            // depending on how this is handled might want to use try catch
-            PokemonView pokemon = myTeam.getPokemonView(i);
-
-            // store primary and secondary types
-            Type primaryType = pokemon.getCurrentType1();
-            Type secondaryType = pokemon.getCurrentType2();
-            sensorValues.set(sensorIdx++, 0, primaryType.ordinal());
-            sensorValues.set(sensorIdx++, 0, secondaryType != null ? secondaryType.ordinal() : -1);
-
-            // store stats
-            for (int j = 0; j < statsEnum.length; j++) {
-                sensorValues.set(sensorIdx++, 0, pokemon.getCurrentStat(statsEnum[j]));
-            }
-        }
-
-        // process all pokemon stats and types for opponent team (6 pokemon x 10
-        // features = 60)
-        for (int i = 0; i < oppTeam.size(); i++) {
-            // depending on how this is handled might want to use try catch
-            PokemonView pokemon = oppTeam.getPokemonView(i);
-
-            // store primary and secondary types
-            Type primaryType = pokemon.getCurrentType1();
-            Type secondaryType = pokemon.getCurrentType2();
-            sensorValues.set(sensorIdx++, 0, primaryType.ordinal());
-            sensorValues.set(sensorIdx++, 0, secondaryType != null ? secondaryType.ordinal() : -1);
-
-            // store stats
-            for (int j = 0; j < statsEnum.length; j++) {
-                sensorValues.set(sensorIdx++, 0, pokemon.getCurrentStat(statsEnum[j]));
-            }
-        }
-
-        // encode the action move (6 features)
         PokemonView myActivePokemon = myTeam.getActivePokemonView();
         PokemonView oppActivePokemon = oppTeam.getActivePokemonView();
+
+        int myATK = myActivePokemon.getCurrentStat(Stat.ATK);
+        int myDEF = myActivePokemon.getCurrentStat(Stat.DEF);
+        int mySATK = myActivePokemon.getCurrentStat(Stat.SPATK);
+        int mySPDEF = myActivePokemon.getCurrentStat(Stat.SPDEF);
+
+        int oppATK = oppActivePokemon.getCurrentStat(Stat.ATK);
+        int oppDEF = oppActivePokemon.getCurrentStat(Stat.DEF);
+        int oppSATK = myActivePokemon.getCurrentStat(Stat.SPATK);
+        int oppSPDEF = myActivePokemon.getCurrentStat(Stat.SPDEF);
+
+        // attack and special attack ratios
+
+        double myAttackRatio = myATK / oppDEF;
+        double mySAttackRatio = mySATK / oppSPDEF;
+        double oppAttackRatio = oppATK / myDEF;
+        double oppSAttackRatio = oppSATK / mySPDEF;
+
+        // speeds and current hp
+
+        int mySpeed = myActivePokemon.getCurrentStat(Stat.SPD);
+        int oppSpeed = oppActivePokemon.getCurrentStat(Stat.SPD);
+
+        int myHP = myActivePokemon.getCurrentStat(Stat.HP);
+        int oppHP = oppActivePokemon.getCurrentStat(Stat.HP);
+
+        // num pokemon alive
+
+        int myAliveCount = 6 - countFainted(myTeam);
+        int oppAliveCount = 6 - countFainted(oppTeam);
+
+        // encode the action move (2 features)
+
         double[] moveEncoding = encodeMove(action, myActivePokemon, oppActivePokemon);
 
-        for (int i = 0; i < moveEncoding.length; i++) {
-            sensorValues.set(sensorIdx++, 0, moveEncoding[i]);
-        }
+        int sensorIdx = 0;
+
+        sensorValues.set(0, sensorIdx++, myAttackRatio);
+        sensorValues.set(0, sensorIdx++, mySAttackRatio);
+        sensorValues.set(0, sensorIdx++, mySpeed);
+        sensorValues.set(0, sensorIdx++, myHP);
+        sensorValues.set(0, sensorIdx++, myAliveCount);
+
+        sensorValues.set(0, sensorIdx++, oppAttackRatio);
+        sensorValues.set(0, sensorIdx++, oppSAttackRatio);
+        sensorValues.set(0, sensorIdx++, oppSpeed);
+        sensorValues.set(0, sensorIdx++, oppHP);
+        sensorValues.set(0, sensorIdx++, oppAliveCount);
+
+        sensorValues.set(0, sensorIdx++, moveEncoding[0]);
+        sensorValues.set(0, sensorIdx++, moveEncoding[0]);
 
         Matrix normalizedSensorValues = normalizeSensorValues(sensorValues);
 
-        return normalizedSensorValues.transpose();
+        return normalizedSensorValues;
     }
 
 }

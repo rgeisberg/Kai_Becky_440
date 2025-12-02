@@ -94,19 +94,15 @@ public class PolicyAgent
         // currently this creates a one-hidden-layer network
         Sequential qFunction = new Sequential();
         // -------------------layer 1----------------------
-        qFunction.add(new Dense(128, 256)); // number of input features , number of neurons in this hidden layer
+        qFunction.add(new Dense(12, 48)); // number of input features , number of neurons in this hidden layer
         qFunction.add(new Tanh()); // non-linear activation function
         // ------------------end of layer 1----------------
         // -------------------layer 2----------------------
-        qFunction.add(new Dense(256, 128)); // number of input features , number of neurons in this hidden layer
+        qFunction.add(new Dense(48, 48)); // number of input features , number of neurons in this hidden layer
         qFunction.add(new Tanh()); // non-linear activation function
         // ------------------end of layer 2----------------
-        // -------------------layer 3----------------------
-        qFunction.add(new Dense(128, 64)); // number of input features , number of neurons in this hidden layer
-        qFunction.add(new Tanh()); // non-linear activation function
-        // ------------------end of layer 3----------------
         // ------------------Final Layer-------------------
-        qFunction.add(new Dense(64, 1)); // final dense layer, maps to 1
+        qFunction.add(new Dense(48, 1)); // final dense layer, maps to 1
         return qFunction;
     }
 
