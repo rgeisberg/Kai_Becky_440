@@ -157,7 +157,7 @@ public class CustomSensorArray
 
                     // 2: mySpeed
                     // 7: oppSpeed
-                    // Typical speeds ~0–200
+                    // Typical speeds 0200
                     case 2:
                     case 7:
                         nv = v / 200.0;
@@ -165,7 +165,7 @@ public class CustomSensorArray
 
                     // 3: myHP
                     // 8: oppHP
-                    // HP often in 0–400 range
+                    // HP often in 0400 range
                     case 3:
                     case 8:
                         nv = v / 400.0;
