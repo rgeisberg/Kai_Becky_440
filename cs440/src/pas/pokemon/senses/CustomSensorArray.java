@@ -231,7 +231,7 @@ public class CustomSensorArray
 
     private int countFainted(TeamView teamView) {
         int numFainted = 0;
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < teamView.size(); i++) {
             if (teamView.getPokemonView(i).hasFainted()) {
                 numFainted += 1;
             }
