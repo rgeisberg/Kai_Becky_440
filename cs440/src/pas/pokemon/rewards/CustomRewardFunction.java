@@ -170,8 +170,13 @@ public class CustomRewardFunction
 
         // ----- combine terms into a single reward -----
         // weights are hyperparameters tweak as you like
-        double reward = winnerReward + 0.5 * damageReward + 20.0 * koReward + 10.0 * teamHPReward + 5.0 * statusReward;
-        reward = Math.max(-100.0, Math.min(100.0, reward)); // I dont know if this is a legit way to do this tbh
+
+        if (winnerReward != 0) {
+            return winnerReward;
+        }
+
+        double reward = 0.35 * damageReward + 50.0 * koReward;
+        reward = Math.max(-100.0, Math.min(100.0, reward));
 
         return reward;
     }

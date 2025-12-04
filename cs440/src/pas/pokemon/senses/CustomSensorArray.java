@@ -110,7 +110,8 @@ public class CustomSensorArray
 
         // double check that the move has power just in case
         if (real_move.getPower() == null) {
-            encoded[0] = 0.0;
+            // look into these 1 hit ko moves but for now just assume 100 damage
+            encoded[0] = 100.0;
             encoded[1] = 0.0;
             return encoded;
         }
