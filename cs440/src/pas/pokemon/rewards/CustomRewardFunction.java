@@ -41,7 +41,7 @@ public class CustomRewardFunction
     // ------------------------- Helpers for Rewards----------------------------
     private double teamHPFraction(TeamView team) {
         double sum = 0.0;
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < team.size(); i++) {
             PokemonView view = team.getPokemonView(i);
             int cur = view.getCurrentStat(Stat.HP);
             int max = view.getBaseStat(Stat.HP);
@@ -62,7 +62,7 @@ public class CustomRewardFunction
 
     private int statusScore(TeamView team) {
         int score = 0;
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < team.size(); i++) {
             PokemonView view = team.getPokemonView(i);
             NonVolatileStatus status = view.getNonVolatileStatus();
             if (status != NonVolatileStatus.NONE) { // whatever the API gives you
