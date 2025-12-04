@@ -6,6 +6,7 @@ package src.pas.pokemon.senses;
 import edu.bu.pas.pokemon.agents.senses.SensorArray;
 import edu.bu.pas.pokemon.core.Battle.BattleView;
 import edu.bu.pas.pokemon.core.Move.MoveView;
+import edu.bu.pas.pokemon.core.SwitchMove;
 import edu.bu.pas.pokemon.core.Pokemon.PokemonView;
 import edu.bu.pas.pokemon.core.Team.TeamView;
 import edu.bu.pas.pokemon.linalg.Matrix;
@@ -14,6 +15,7 @@ import edu.bu.pas.pokemon.core.enums.Stat;
 import edu.bu.pas.pokemon.core.DamageEquation;
 import edu.bu.pas.pokemon.core.Move;
 import edu.bu.pas.pokemon.core.Pokemon;
+import edu.bu.pas.pokemon.core.Move.Category;
 import java.util.List;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -106,6 +108,13 @@ public class CustomSensorArray
             STAB = true;
         }
 
+        // double check that the move has power just in case
+        if (real_move.getPower() == null) {
+            encoded[0] = 0.0;
+            encoded[1] = 0.0;
+            return encoded;
+        }
+
         int damage = DamageEquation.calculateDamage(
                 real_move,
                 1,
@@ -116,7 +125,10 @@ public class CustomSensorArray
                 0,
                 0.925);
 
-        double accuracy = real_move.getAccuracy() / 100.0;
+        double accuracy = 1.0;
+        if (real_move.getAccuracy() != null) {
+            accuracy = real_move.getAccuracy() / 100.0;
+        }
         double baseDamage = damage / 0.925;
 
         // variance of uniform(0.85, 1.0)
@@ -179,15 +191,21 @@ public class CustomSensorArray
                         nv = v / 6.0;
                         break;
 
-                    // 10: move damage expectation
-                    // Roughly similar to HP/damage, scale like HP
+                    // 10: move category
+                    // In [0, 3] (0=SWITCH, 1=PHYSICAL, 2=SPECIAL, 3=STATUS)
                     case 10:
+                        nv = v / 3.0;
+                        break;
+
+                    // 11: move damage expectation
+                    // Roughly similar to HP/damage, scale like HP
+                    case 11:
                         nv = v / 400.0;
                         break;
 
-                    // 11: move damage variance
+                    // 12: move damage variance
                     // Can be big; scale more aggressively
-                    case 11:
+                    case 12:
                         nv = v / 40000.0;
                         break;
 
@@ -223,7 +241,7 @@ public class CustomSensorArray
 
     public Matrix getSensorValues(final BattleView state, final MoveView action) {
 
-        int numfeatures = 12;
+        int numfeatures = 13;
 
         // matrix for features
         Matrix sensorValues = Matrix.zeros(1, numfeatures);
@@ -269,10 +287,31 @@ public class CustomSensorArray
         int myAliveCount = 6 - countFainted(myTeam);
         int oppAliveCount = 6 - countFainted(oppTeam);
 
+        // encode move category: 0=SWITCH, 1=PHYSICAL, 2=SPECIAL, 3=STATUS
+        double moveCategory = 0.0;
+        double[] moveEncoding = new double[2];
+
         // encode the action move (2 features)
-
-        double[] moveEncoding = encodeMove(action, myActivePokemon, oppActivePokemon);
-
+        if (action instanceof SwitchMove.SwitchMoveView) {
+            // Switch move
+            moveCategory = 0.0;
+            moveEncoding[0] = 0.0;
+            moveEncoding[1] = 0.0;
+        } else {
+            Category cat = action.getCategory();
+            if (cat == Category.PHYSICAL) {
+                moveCategory = 1.0;
+                moveEncoding = encodeMove(action, myActivePokemon, oppActivePokemon);
+            } else if (cat == Category.SPECIAL) {
+                moveCategory = 2.0;
+                moveEncoding = encodeMove(action, myActivePokemon, oppActivePokemon);
+            } else {
+                // STATUS move
+                moveCategory = 3.0;
+                moveEncoding[0] = 0.0;
+                moveEncoding[1] = 0.0;
+            }
+        }
         int sensorIdx = 0;
 
         sensorValues.set(0, sensorIdx++, myAttackRatio);
@@ -287,10 +326,19 @@ public class CustomSensorArray
         sensorValues.set(0, sensorIdx++, oppHP);
         sensorValues.set(0, sensorIdx++, oppAliveCount);
 
+        sensorValues.set(0, sensorIdx++, moveCategory);
         sensorValues.set(0, sensorIdx++, moveEncoding[0]);
-        sensorValues.set(0, sensorIdx++, moveEncoding[0]);
+        sensorValues.set(0, sensorIdx++, moveEncoding[1]);
 
         Matrix normalizedSensorValues = normalizeSensorValues(sensorValues);
+
+        // Check for null values before returning
+        for (int i = 0; i < normalizedSensorValues.getShape().getNumCols(); i++) {
+            Double value = normalizedSensorValues.get(0, i);
+            if (value == null) {
+                throw new IllegalStateException("Null value found at sensor index " + i);
+            }
+        }
 
         return normalizedSensorValues;
     }
