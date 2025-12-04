@@ -40,19 +40,19 @@ public class CustomRewardFunction
 
     // ------------------------- Helpers for Rewards----------------------------
     private double teamHPFraction(TeamView team) {
-        double totalCurrentHP = 0.0;
-        double totalBaseHP = 0.0;
-        for (int i = 0; i < 6; i++) {
+        double sum = 0.0;
+        for (int i = 0; i < team.size(); i++) {
             PokemonView view = team.getPokemonView(i);
-            totalCurrentHP += view.getCurrentStat(Stat.HP);
-            totalBaseHP += view.getBaseStat(Stat.HP);
+            int cur = view.getCurrentStat(Stat.HP);
+            int max = view.getBaseStat(Stat.HP);
+            sum += (double) cur / max;
         }
-        return totalCurrentHP / totalBaseHP; // in [0, teamSize]
+        return sum; // in [0, teamSize]
     }
 
     private int countFainted(TeamView teamView) {
         int numFainted = 0;
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < teamView.size(); i++) {
             if (teamView.getPokemonView(i).hasFainted()) {
                 numFainted += 1;
             }
@@ -65,7 +65,7 @@ public class CustomRewardFunction
         for (int i = 0; i < 6; i++) {
             PokemonView view = team.getPokemonView(i);
             NonVolatileStatus status = view.getNonVolatileStatus();
-            if (status != NonVolatileStatus.NONE) {
+            if (status != NonVolatileStatus.NONE) { // whatever the API gives you
                 score++;
             }
         }
@@ -168,8 +168,6 @@ public class CustomRewardFunction
         // positive if we expect to deal more damage than we take
         double damageReward = oppHPDamageExp - myHPDamageExp;
 
-        // ----- combine terms into a single reward -----
-
         damageReward = Math.max(-200.0, Math.min(200.0, damageReward));
         koReward = Math.max(-1.0, Math.min(1.0, koReward));
         teamHPReward = Math.max(-2.0, Math.min(2.0, teamHPReward));
@@ -182,6 +180,10 @@ public class CustomRewardFunction
             reward = 0.25 * damageReward + 20.0 * koReward + 5.0 * teamHPReward + statusReward;
         }
 
+        // ----- combine terms into a single reward -----
+        // weights are hyperparameters tweak as you like
+        // double reward = winnerReward + 0.5 * damageReward + 20.0 * koReward + 10.0 *
+        // teamHPReward + 5.0 * statusReward;
         reward = Math.max(-100.0, Math.min(100.0, reward)); // I dont know if this is a legit way to do this tbh
 
         return reward;
