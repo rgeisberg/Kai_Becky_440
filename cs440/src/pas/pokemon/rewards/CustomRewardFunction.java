@@ -41,7 +41,7 @@ public class CustomRewardFunction
     // ------------------------- Helpers for Rewards----------------------------
     private double teamHPFraction(TeamView team) {
         double sum = 0.0;
-        for (int i = 0; i < team.size(); i++) {
+        for (int i = 0; i < 6; i++) {
             PokemonView view = team.getPokemonView(i);
             int cur = view.getCurrentStat(Stat.HP);
             int max = view.getBaseStat(Stat.HP);
@@ -177,14 +177,10 @@ public class CustomRewardFunction
         if (winnerReward != 0) {
             reward = winnerReward;
         } else {
-            reward = 0.25 * damageReward + 20.0 * koReward + 5.0 * teamHPReward + statusReward;
+            reward = 0.25 * damageReward + 30 * koReward;
         }
 
-        // ----- combine terms into a single reward -----
-        // weights are hyperparameters tweak as you like
-        // double reward = winnerReward + 0.5 * damageReward + 20.0 * koReward + 10.0 *
-        // teamHPReward + 5.0 * statusReward;
-        reward = Math.max(-100.0, Math.min(100.0, reward)); // I dont know if this is a legit way to do this tbh
+        reward = Math.max(-100.0, Math.min(100.0, reward));
 
         return reward;
     }
