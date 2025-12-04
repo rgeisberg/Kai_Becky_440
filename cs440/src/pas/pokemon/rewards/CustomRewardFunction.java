@@ -168,14 +168,18 @@ public class CustomRewardFunction
         // positive if we expect to deal more damage than we take
         double damageReward = oppHPDamageExp - myHPDamageExp;
 
-        // ----- combine terms into a single reward -----
-        // weights are hyperparameters tweak as you like
-
+        damageReward = Math.max(-200.0, Math.min(200.0, damageReward));
+        koReward = Math.max(-1.0, Math.min(1.0, koReward));
+        teamHPReward = Math.max(-2.0, Math.min(2.0, teamHPReward));
+        statusReward = Math.max(-6.0, Math.min(6.0, statusReward));
+        // then combine with weights
+        double reward = 0.0;
         if (winnerReward != 0) {
-            return winnerReward;
+            reward = winnerReward;
+        } else {
+            reward = 0.25 * damageReward + 30 * koReward;
         }
 
-        double reward = 0.35 * damageReward + 50.0 * koReward;
         reward = Math.max(-100.0, Math.min(100.0, reward));
 
         return reward;
