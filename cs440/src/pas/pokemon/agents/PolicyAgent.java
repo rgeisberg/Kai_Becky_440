@@ -340,17 +340,19 @@ public class PolicyAgent
     }
 
     // exploration schedule
-    private int maxEpisodes = 10000;
-    private double epsilonStart = 1.0; // explore a lot at the beginning
-    private double epsilonEnd = 0.05; // small amount of exploration later
+    private int maxEpisodes = 500;
     private int episodesDone = 0;
     private Random rng = new Random();
-    private boolean lastGameWasCounted = false;
 
     private double currentEpsilon() {
         // fraction goes from 0 to 1 as we move through 70% of training
-        double fraction = Math.min(1.0, (double) episodesDone / (0.7 * maxEpisodes));
-        return epsilonStart + fraction * (epsilonEnd - epsilonStart);
+        double fraction = Math.min(1.0, (double) episodesDone / (0.9 * maxEpisodes));
+        return fraction * (0.95);
+    }
+
+    @Override
+    public void eval() {
+        episodesDone++;
     }
 
     @Override
@@ -382,67 +384,7 @@ public class PolicyAgent
         return this.argmax(view);
     }
 
-    private int gamesPlayed = 0;
-    private int gamesWon = 0;
-    private int gamesLost = 0;
-    private int gamesTied = 0;
-    private int totalTurns = 0;
-
     @Override
     public void afterGameEnds(BattleView view) {
-        gamesPlayed++;
-
-        TeamView myTeam = view.getTeam1View();
-        TeamView oppTeam = view.getTeam2View();
-
-        boolean myAllFainted = true;
-        boolean oppAllFainted = true;
-
-        for (int i = 0; i < myTeam.size(); i++) {
-            if (!myTeam.getPokemonView(i).hasFainted()) {
-                myAllFainted = false;
-                break;
-            }
-        }
-        for (int i = 0; i < oppTeam.size(); i++) {
-            if (!oppTeam.getPokemonView(i).hasFainted()) {
-                oppAllFainted = false;
-                break;
-            }
-        }
-
-        boolean iWon = oppAllFainted && !myAllFainted;
-        boolean iLost = myAllFainted && !oppAllFainted;
-        boolean tie = myAllFainted && oppAllFainted;
-
-        if (iWon)
-            gamesWon++;
-        if (iLost)
-            gamesLost++;
-        if (tie)
-            gamesTied++;
-
-        episodesDone++;
-
-        double winRate = (gamesWon + 0.5 * gamesTied) / (double) gamesPlayed;
-
-        // epsilon at end of this episode:
-        double eps = currentEpsilon();
-
-        // Log game count every game
-        logDebugDefault("Game " + gamesPlayed + " completed. Episodes done: " + episodesDone);
-        logDebug("Game " + gamesPlayed + " completed. Episodes done: " + episodesDone, "gameCount.txt");
-
-        if (gamesPlayed % 1000 == 0) {
-            String logMsg = String.format(
-                    "Games Played: %d, Wins: %d, Losses: %d, Ties: %d, Win Rate: %.3f, Epsilon: %.3f",
-                    gamesPlayed,
-                    gamesWon,
-                    gamesLost,
-                    gamesTied,
-                    winRate,
-                    eps);
-            logDebug(logMsg, "trainingData.txt");
-        }
     }
 }
