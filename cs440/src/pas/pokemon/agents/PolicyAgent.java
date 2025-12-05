@@ -340,17 +340,19 @@ public class PolicyAgent
     }
 
     // exploration schedule
-    private int maxEpisodes = 10000;
-    private double epsilonStart = 1.0; // explore a lot at the beginning
-    private double epsilonEnd = 0.05; // small amount of exploration later
+    private int maxEpisodes = 500;
     private int episodesDone = 0;
     private Random rng = new Random();
-    private boolean lastGameWasCounted = false;
 
     private double currentEpsilon() {
         // fraction goes from 0 to 1 as we move through 70% of training
-        double fraction = Math.min(1.0, (double) episodesDone / (0.7 * maxEpisodes));
-        return epsilonStart + fraction * (epsilonEnd - epsilonStart);
+        double fraction = Math.min(1.0, (double) episodesDone / (0.9 * maxEpisodes));
+        return fraction * (0.95);
+    }
+
+    @Override
+    public void eval() {
+        episodesDone++;
     }
 
     @Override
