@@ -431,6 +431,39 @@ public class PolicyAgent
         return false;
     }
 
+    public MoveView canIKillOpponent(BattleView state) {
+        PokemonView myPokemon = state.getTeam1View().getActivePokemonView();
+        PokemonView oppPokemon = state.getTeam2View().getActivePokemonView();
+        Pokemon real_myPokemon = viewToPokemon(myPokemon);
+        Pokemon real_oppPokemon = viewToPokemon(oppPokemon);
+        List<MoveView> myMoves = myPokemon.getAvailableMoves();
+        for (MoveView moveView : myMoves) {
+            if (moveView.getPower() == null) {
+                continue;
+            }
+            boolean STAB = moveView.getType().equals(myPokemon.getCurrentType1())
+                    || moveView.getType().equals(myPokemon.getCurrentType2());
+
+            Move real_move = new Move(moveView);
+
+            // assume min roll no crit
+            int damage = DamageEquation.calculateDamage(
+                    real_move,
+                    1,
+                    real_myPokemon,
+                    real_oppPokemon,
+                    STAB,
+                    true,
+                    0,
+                    0.85);
+
+            if (damage >= oppPokemon.getCurrentStat(Stat.HP)) {
+                return moveView;
+            }
+        }
+        return null;
+    }
+
     @Override
     public MoveView getMove(BattleView view) {
         // TODO: change this to include random exploration during training and maybe use
@@ -470,13 +503,18 @@ public class PolicyAgent
                 } else {
                     if (willIGetOneShotted(view)) {
                         // if we will get oneshotted and have higher than 35% HP probably best to switch
-                        // if we can to preserve out MON for later
-                        if (view.getTeam1View().size() > 1) {
-                            int bestSwitchIdx = chooseNextPokemon(view);
-                            if (bestSwitchIdx != -1) {
-                                SwitchMove switchMove = new SwitchMove(bestSwitchIdx);
-                                SwitchMoveView switchMoveView = new SwitchMoveView(switchMove);
-                                return switchMoveView;
+                        // if we can to preserve out MON for later unless we can likely kil them first
+                        MoveView killerMove = canIKillOpponent(view);
+                        if (killerMove != null) {
+                            return killerMove;
+                        } else {
+                            if (view.getTeam1View().size() > 1) {
+                                int bestSwitchIdx = chooseNextPokemon(view);
+                                if (bestSwitchIdx != -1) {
+                                    SwitchMove switchMove = new SwitchMove(bestSwitchIdx);
+                                    SwitchMoveView switchMoveView = new SwitchMoveView(switchMove);
+                                    return switchMoveView;
+                                }
                             }
                         }
                     }
