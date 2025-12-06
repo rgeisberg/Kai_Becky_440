@@ -343,6 +343,7 @@ public class PolicyAgent
     private double epsilonStart = 1.0; // explore a lot at the beginning
     private double epsilonEnd = 0.05; // small amount of exploration later
     private int episodesDone = 0;
+    private Random rng = new Random();
 
     private double currentEpsilon() {
         // fraction goes from 0 to 1 as we move through 70% of training
