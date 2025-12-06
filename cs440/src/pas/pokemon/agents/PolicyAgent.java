@@ -16,6 +16,8 @@ import edu.bu.pas.pokemon.core.Move.MoveView;
 import edu.bu.pas.pokemon.core.Team.TeamView;
 import edu.bu.pas.pokemon.core.DamageEquation;
 import edu.bu.pas.pokemon.core.Move;
+import edu.bu.pas.pokemon.core.SwitchMove;
+import edu.bu.pas.pokemon.core.SwitchMove.SwitchMoveView;
 import edu.bu.pas.pokemon.core.Pokemon;
 import edu.bu.pas.pokemon.core.Pokemon.PokemonView;
 import edu.bu.pas.pokemon.core.enums.Type;
@@ -358,6 +360,77 @@ public class PolicyAgent
         episodesDone++;
     }
 
+    public int getHighestDamageMove(BattleView state) {
+        PokemonView myPokemon = state.getTeam1View().getActivePokemonView();
+        PokemonView oppPokemon = state.getTeam2View().getActivePokemonView();
+        List<MoveView> myMoves = myPokemon.getAvailableMoves();
+        int maxDamage = -1;
+        int bestMoveIdx = -1;
+        for (int i = 0; i < myMoves.size(); i++) {
+            MoveView moveView = myMoves.get(i);
+            if (moveView.getPower() == null) {
+                continue;
+            }
+            boolean STAB = moveView.getType().equals(myPokemon.getCurrentType1())
+                    || moveView.getType().equals(myPokemon.getCurrentType2());
+
+            Move real_move = new Move(moveView);
+            Pokemon real_myPokemon = viewToPokemon(myPokemon);
+            Pokemon real_oppPokemon = viewToPokemon(oppPokemon);
+
+            // assume average roll no crit
+            int damage = DamageEquation.calculateDamage(
+                    real_move,
+                    1,
+                    real_myPokemon,
+                    real_oppPokemon,
+                    STAB,
+                    true,
+                    0,
+                    0.925);
+
+            if (damage > maxDamage) {
+                maxDamage = damage;
+                bestMoveIdx = i;
+            }
+        }
+        return bestMoveIdx;
+    }
+
+    public boolean willIGetOneShotted(BattleView state) {
+        PokemonView myPokemon = state.getTeam1View().getActivePokemonView();
+        PokemonView oppPokemon = state.getTeam2View().getActivePokemonView();
+        Pokemon real_myPokemon = viewToPokemon(myPokemon);
+        Pokemon real_oppPokemon = viewToPokemon(oppPokemon);
+        List<MoveView> oppMoves = oppPokemon.getAvailableMoves();
+        for (MoveView oppMove : oppMoves) {
+
+            if (oppMove.getPower() == null) {
+                continue;
+            }
+            boolean STAB = oppMove.getType().equals(oppPokemon.getCurrentType1())
+                    || oppMove.getType().equals(oppPokemon.getCurrentType2());
+
+            Move real_oppMove = new Move(oppMove);
+
+            // assume max roll no crit
+            int damage = DamageEquation.calculateDamage(
+                    real_oppMove,
+                    1,
+                    real_oppPokemon,
+                    real_myPokemon,
+                    STAB,
+                    true,
+                    0,
+                    1.0);
+
+            if (damage >= myPokemon.getCurrentStat(Stat.HP)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public MoveView getMove(BattleView view) {
         // TODO: change this to include random exploration during training and maybe use
@@ -381,8 +454,36 @@ public class PolicyAgent
 
         double epsilon = currentEpsilon();
         if (rng.nextDouble() < epsilon) {
-            List<MoveView> legalMoves = view.getTeam1View().getActivePokemonView().getAvailableMoves();
-            return legalMoves.get(rng.nextInt(legalMoves.size()));
+            double B = 0.85; // if we have a super effective move, encourge the model to try it but leave
+                             // some room for randomness
+            PokemonView myPokemon = view.getTeam1View().getActivePokemonView();
+            List<MoveView> legalMoves = myPokemon.getAvailableMoves();
+
+            if (rng.nextDouble() < B) {
+                if (myPokemon.getCurrentStat(Stat.HP) < (0.35 * myPokemon.getBaseStat(Stat.HP))) {
+                    // if we are are already low HP switching is likely pointless so just try to
+                    // attack and hope for the best
+                    int bestMoveIdx = getHighestDamageMove(view);
+                    if (bestMoveIdx != -1) {
+                        return legalMoves.get(bestMoveIdx);
+                    }
+                } else {
+                    if (willIGetOneShotted(view)) {
+                        // if we will get oneshotted and have higher than 35% HP probably best to switch
+                        // if we can to preserve out MON for later
+                        if (view.getTeam1View().size() > 1) {
+                            int bestSwitchIdx = chooseNextPokemon(view);
+                            if (bestSwitchIdx != -1) {
+                                SwitchMove switchMove = new SwitchMove(bestSwitchIdx);
+                                SwitchMoveView switchMoveView = new SwitchMoveView(switchMove);
+                                return switchMoveView;
+                            }
+                        }
+                    }
+                }
+            } else {
+                return legalMoves.get(rng.nextInt(legalMoves.size()));
+            }
         }
         return this.argmax(view);
     }
