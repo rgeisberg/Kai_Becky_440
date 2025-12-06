@@ -98,11 +98,11 @@ public class PolicyAgent
         qFunction.add(new Tanh()); // non-linear activation function
         // ------------------end of layer 1----------------
         // -------------------layer 2----------------------
-        qFunction.add(new Dense(512, 512)); // number of input features , number of neurons in this hidden layer
+        qFunction.add(new Dense(512, 1028)); // number of input features , number of neurons in this hidden layer
         qFunction.add(new Tanh()); // non-linear activation function
         // ------------------end of layer 2----------------
         // ------------------Final Layer-------------------
-        qFunction.add(new Dense(512, 1)); // final dense layer, maps to 1
+        qFunction.add(new Dense(1028, 1)); // final dense layer, maps to 1
         return qFunction;
     }
 
