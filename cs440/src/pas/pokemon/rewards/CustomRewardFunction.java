@@ -7,6 +7,7 @@ import edu.bu.pas.pokemon.agents.rewards.RewardFunction;
 import edu.bu.pas.pokemon.agents.rewards.RewardFunction.RewardType;
 import edu.bu.pas.pokemon.core.Pokemon;
 import edu.bu.pas.pokemon.core.Battle.BattleView;
+import edu.bu.pas.pokemon.core.Battle;
 import edu.bu.pas.pokemon.core.Move.MoveView;
 import edu.bu.pas.pokemon.core.Pokemon.PokemonView;
 import edu.bu.pas.pokemon.core.Team.TeamView;
