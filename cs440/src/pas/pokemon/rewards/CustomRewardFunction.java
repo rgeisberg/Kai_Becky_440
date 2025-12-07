@@ -173,7 +173,7 @@ public class CustomRewardFunction
         Battle battle = new Battle(state);
         int numTurns = battle.getTurnNumber();
 
-        double penalty = -0.05 * numTurns;
+        double penalty = -0.1 * numTurns;
 
         damageReward = Math.max(-200.0, Math.min(200.0, damageReward));
         koReward = Math.max(-1.0, Math.min(1.0, koReward));
