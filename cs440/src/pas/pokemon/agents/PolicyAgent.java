@@ -347,12 +347,13 @@ public class PolicyAgent
     // exploration schedule
     private int maxEpisodes = 500;
     private int episodesDone = 0;
+    private double minEpsilon = 0.05;
     private Random rng = new Random();
 
     private double currentEpsilon() {
         // fraction goes from 0 to 1 as we move through 70% of training
         double fraction = Math.min(1.0, (double) episodesDone / (0.9 * maxEpisodes));
-        return fraction * (0.95);
+        return Math.max(minEpsilon, fraction * (0.95));
     }
 
     @Override
@@ -397,7 +398,7 @@ public class PolicyAgent
         return bestMoveIdx;
     }
 
-    public boolean willIGetOneShotted(BattleView state) {
+    public boolean willIGetOneShotted(BattleView state, double roll) {
         PokemonView myPokemon = state.getTeam1View().getActivePokemonView();
         PokemonView oppPokemon = state.getTeam2View().getActivePokemonView();
         Pokemon real_myPokemon = viewToPokemon(myPokemon);
@@ -422,7 +423,7 @@ public class PolicyAgent
                     STAB,
                     true,
                     0,
-                    1.0);
+                    roll);
 
             if (damage >= myPokemon.getCurrentStat(Stat.HP)) {
                 return true;
@@ -464,6 +465,14 @@ public class PolicyAgent
         return null;
     }
 
+    public boolean AmIFaster(BattleView state) {
+        PokemonView myPokemon = state.getTeam1View().getActivePokemonView();
+        PokemonView oppPokemon = state.getTeam2View().getActivePokemonView();
+        int mySpeed = myPokemon.getCurrentStat(Stat.SPD);
+        int oppSpeed = oppPokemon.getCurrentStat(Stat.SPD);
+        return mySpeed > oppSpeed;
+    }
+
     @Override
     public MoveView getMove(BattleView view) {
         // TODO: change this to include random exploration during training and maybe use
@@ -493,32 +502,78 @@ public class PolicyAgent
             List<MoveView> legalMoves = myPokemon.getAvailableMoves();
 
             if (rng.nextDouble() < B) {
-                if (myPokemon.getCurrentStat(Stat.HP) < (0.35 * myPokemon.getBaseStat(Stat.HP))) {
-                    // if we are are already low HP switching is likely pointless so just try to
-                    // attack and hope for the best
-                    int bestMoveIdx = getHighestDamageMove(view);
-                    if (bestMoveIdx != -1) {
-                        return legalMoves.get(bestMoveIdx);
+                boolean worstCase = willIGetOneShotted(view, 1.0);
+                boolean unluckyCase = willIGetOneShotted(view, 0.96);
+                boolean likelyCase = willIGetOneShotted(view, 0.925);
+                boolean outspeed = AmIFaster(view);
+                MoveView killerMove = canIKillOpponent(view);
+                double hpFrac = (0.35 * myPokemon.getBaseStat(Stat.HP));
+
+                // if we can kill then do it obviously
+                if (outspeed && killerMove != null) {
+                    return killerMove;
+                }
+
+                int riskLevel;
+                if (!worstCase) {
+                    riskLevel = 0; // lives a perfect roll (not crit)
+                } else if (!unluckyCase) {
+                    riskLevel = 1; // live a 96% roll
+                } else if (!likelyCase) {
+                    riskLevel = 2; // lives an average (92.5%) roll
+                } else {
+                    riskLevel = 3; // likely oneshot
+                }
+
+                double aggro = 0.6; // probability of trying to attack or not
+
+                // adjust aggro based on hp level (switch is better if we are healthier in
+                // general)
+                if (hpFrac < 0.35) {
+                    aggro += 0.2;
+                } else if (hpFrac > 0.7) {
+                    aggro -= 0.1;
+                }
+
+                // adjust aggro based on specific risk level
+                switch (riskLevel) {
+                    case 0:
+                        aggro += 0.2;
+                        break;
+                    case 1:
+                        aggro += 0.1;
+                        break;
+                    case 2:
+                        aggro -= 0.1;
+                        break;
+                    case 3:
+                        aggro -= 0.3;
+                        break;
+                }
+
+                // speed interactions
+                if (outspeed && !worstCase) {
+                    aggro += 0.2;
+                }
+                if (!outspeed && riskLevel >= 2) {
+                    aggro -= 0.2;
+                }
+
+                aggro = Math.max(0.05, Math.min(0.95, aggro)); // clamp keeping some randomness
+
+                if (rng.nextDouble() < aggro) {
+                    int bestIdx = getHighestDamageMove(view);
+                    if (bestIdx != -1) {
+                        return legalMoves.get(bestIdx);
                     }
                 } else {
-                    if (willIGetOneShotted(view)) {
-                        // if we will get oneshotted and have higher than 35% HP probably best to switch
-                        // if we can to preserve out MON for later unless we can likely kil them first
-                        MoveView killerMove = canIKillOpponent(view);
-                        if (killerMove != null) {
-                            return killerMove;
-                        } else {
-                            if (view.getTeam1View().size() > 1) {
-                                int bestSwitchIdx = chooseNextPokemon(view);
-                                if (bestSwitchIdx != -1) {
-                                    SwitchMove switchMove = new SwitchMove(bestSwitchIdx);
-                                    SwitchMoveView switchMoveView = new SwitchMoveView(switchMove);
-                                    return switchMoveView;
-                                }
-                            }
-                        }
+                    int bestSwitchIdx = chooseNextPokemon(view);
+                    if (bestSwitchIdx != -1) {
+                        return new SwitchMoveView(new SwitchMove(bestSwitchIdx));
                     }
                 }
+                return legalMoves.get(rng.nextInt(legalMoves.size()));
+
             } else {
                 return legalMoves.get(rng.nextInt(legalMoves.size()));
             }
