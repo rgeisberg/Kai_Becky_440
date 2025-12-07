@@ -7,6 +7,7 @@ import edu.bu.pas.pokemon.agents.rewards.RewardFunction;
 import edu.bu.pas.pokemon.agents.rewards.RewardFunction.RewardType;
 import edu.bu.pas.pokemon.core.Pokemon;
 import edu.bu.pas.pokemon.core.Battle.BattleView;
+import edu.bu.pas.pokemon.core.Battle;
 import edu.bu.pas.pokemon.core.Move.MoveView;
 import edu.bu.pas.pokemon.core.Pokemon.PokemonView;
 import edu.bu.pas.pokemon.core.Team.TeamView;
@@ -168,6 +169,11 @@ public class CustomRewardFunction
         // positive if we expect to deal more damage than we take
         double damageReward = oppHPDamageExp - myHPDamageExp;
 
+        Battle battle = new Battle(state);
+        int numTurns = battle.getTurnNumber();
+
+        double penalty = -0.05 * numTurns;
+
         damageReward = Math.max(-200.0, Math.min(200.0, damageReward));
         koReward = Math.max(-1.0, Math.min(1.0, koReward));
         teamHPReward = Math.max(-2.0, Math.min(2.0, teamHPReward));
@@ -179,6 +185,8 @@ public class CustomRewardFunction
         } else {
             reward = 0.25 * damageReward + 30 * koReward;
         }
+
+        reward = reward + penalty;
 
         reward = Math.max(-100.0, Math.min(100.0, reward));
 
