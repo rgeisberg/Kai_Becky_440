@@ -507,7 +507,7 @@ public class PolicyAgent
                 boolean likelyCase = willIGetOneShotted(view, 0.925);
                 boolean outspeed = AmIFaster(view);
                 MoveView killerMove = canIKillOpponent(view);
-                double hpFrac = (0.35 * myPokemon.getBaseStat(Stat.HP));
+                double hpFrac = (double) myPokemon.getCurrentStat(Stat.HP) / (double) myPokemon.getBaseStat(Stat.HP);
 
                 // if we can kill then do it obviously
                 if (outspeed && killerMove != null) {
