@@ -161,7 +161,7 @@ public class CustomSensorArray
         }
 
         // double check that the move has power just in case
-        if (real_move.getPower() == null) {
+        if (move.getPower() == null) {
             // look into these 1 hit ko moves but for now just assume 100 damage
             encoded[0] = 100.0;
             encoded[1] = 0.0;
@@ -176,8 +176,8 @@ public class CustomSensorArray
                 0.925);
 
         double accuracy = 1.0;
-        if (real_move.getAccuracy() != null) {
-            accuracy = real_move.getAccuracy() / 100.0;
+        if (move.getAccuracy() != null) {
+            accuracy = move.getAccuracy() / 100.0;
         }
         double baseDamage = damage / 0.925;
 
