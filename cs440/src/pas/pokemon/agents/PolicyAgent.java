@@ -13,6 +13,7 @@ import edu.bu.pas.pokemon.agents.NeuralQAgent;
 import edu.bu.pas.pokemon.agents.senses.SensorArray;
 import edu.bu.pas.pokemon.core.Battle.BattleView;
 import edu.bu.pas.pokemon.core.Move.MoveView;
+import edu.bu.pas.pokemon.core.Move.Category;
 import edu.bu.pas.pokemon.core.Team.TeamView;
 import edu.bu.pas.pokemon.core.DamageEquation;
 import edu.bu.pas.pokemon.core.Move;
@@ -35,6 +36,59 @@ import src.pas.pokemon.senses.CustomSensorArray;
 
 public class PolicyAgent
         extends NeuralQAgent {
+
+    public int computeDamage(
+            MoveView move,
+            PokemonView attacker,
+            PokemonView defender,
+            boolean isCrit,
+            double r) {
+
+        double L = attacker.getLevel();
+        double P = move.getPower();
+
+        Type moveType = move.getType();
+        Category cat = move.getCategory();
+
+        int attackerStat = -1;
+        int defenderStat = -1;
+
+        if (cat == Category.PHYSICAL) {
+            attackerStat = attacker.getCurrentStat(Stat.ATK);
+            defenderStat = defender.getCurrentStat(Stat.DEF);
+        } else if (cat == Category.SPECIAL) {
+            attackerStat = attacker.getCurrentStat(Stat.SPATK);
+            defenderStat = defender.getCurrentStat(Stat.SPDEF);
+        } else {
+            throw new IllegalArgumentException("Move category must be PHYSICAL or SPECIAL for damage calculation.");
+        }
+
+        double C = isCrit ? 2.0 : 1.0;
+
+        // STAB = 1.5 if at least one type of attacker matches move type, else 1.0
+        double STAB = 1.0;
+        if (moveType == attacker.getCurrentType1()) {
+            STAB = 1.5;
+        } else if (attacker.getCurrentType2() != null && moveType == attacker.getCurrentType2()) {
+            STAB = 1.5;
+        }
+
+        // Type effectiveness
+        double T = getTypeEffectiveness(moveType, defender.getCurrentType1());
+        if (defender.getCurrentType2() != null) {
+            T *= getTypeEffectiveness(moveType, defender.getCurrentType2());
+        }
+
+        // ---- formula ----
+        double numerator = (((2 * L * C) / 5.0) + 2) * P * ((double) attackerStat / (double) defenderStat);
+        double denominator = 50.0;
+
+        double baseTerm = (numerator / denominator) + 2;
+
+        double damageDouble = baseTerm * STAB * T * r;
+
+        return (int) Math.floor(damageDouble);
+    }
 
     private static void logDebugDefault(String message) {
         try (FileWriter fw = new FileWriter("debug.log", true);
@@ -170,19 +224,7 @@ public class PolicyAgent
                     // ask about what 'type damage means' I'm assuming true means take it into
                     // account, not that it definenitly does super effective
 
-                    Move real_move = new Move(moveView);
-                    Pokemon real_myPokemon = viewToPokemon(myPokemon);
-                    Pokemon real_oppPokemon = viewToPokemon(oppPokemon);
-
-                    int damage = DamageEquation.calculateDamage(
-                            real_move,
-                            1,
-                            real_myPokemon,
-                            real_oppPokemon,
-                            STAB,
-                            true,
-                            0,
-                            0.85);
+                    int damage = computeDamage(moveView, myPokemon, oppPokemon, false, 0.85);
 
                     if (damage >= oppPokemon.getCurrentStat(Stat.HP)) {
                         return i;
@@ -212,20 +254,8 @@ public class PolicyAgent
                     if (oppMove.getPower() == null) {
                         continue;
                     }
-                    boolean STAB = oppMove.getType().equals(oppPokemon.getCurrentType1())
-                            || oppMove.getType().equals(oppPokemon.getCurrentType2());
 
-                    Move real_oppMove = new Move(oppMove);
-
-                    int damage = DamageEquation.calculateDamage(
-                            real_oppMove,
-                            1,
-                            real_myPokemon,
-                            real_oppPokemon,
-                            STAB,
-                            true,
-                            0,
-                            1.0);
+                    int damage = computeDamage(oppMove, oppPokemon, myPokemon, false, 1.0);
 
                     if (damage >= myPokemon.getCurrentStat(Stat.HP)) {
                         // we would get oneshot, try next pokemon
@@ -243,21 +273,8 @@ public class PolicyAgent
                     if (moveView.getPower() == null) {
                         continue;
                     }
-                    // determine if the damage will be sufficient to knock out the opponent assuming
-                    // no crit and min roll
-                    boolean STAB = moveView.getType().equals(myPokemon.getCurrentType1())
-                            || moveView.getType().equals(myPokemon.getCurrentType2());
 
-                    Move real_move = new Move(moveView);
-                    int damage = DamageEquation.calculateDamage(
-                            real_move,
-                            1,
-                            real_myPokemon,
-                            real_oppPokemon,
-                            STAB,
-                            true,
-                            0,
-                            0.85);
+                    int damage = computeDamage(moveView, myPokemon, oppPokemon, false, 0.85);
 
                     if (damage >= oppPokemon.getCurrentStat(Stat.HP)) {
                         return i;
@@ -372,23 +389,9 @@ public class PolicyAgent
             if (moveView.getPower() == null) {
                 continue;
             }
-            boolean STAB = moveView.getType().equals(myPokemon.getCurrentType1())
-                    || moveView.getType().equals(myPokemon.getCurrentType2());
-
-            Move real_move = new Move(moveView);
-            Pokemon real_myPokemon = viewToPokemon(myPokemon);
-            Pokemon real_oppPokemon = viewToPokemon(oppPokemon);
 
             // assume average roll no crit
-            int damage = DamageEquation.calculateDamage(
-                    real_move,
-                    1,
-                    real_myPokemon,
-                    real_oppPokemon,
-                    STAB,
-                    true,
-                    0,
-                    0.925);
+            int damage = computeDamage(moveView, myPokemon, oppPokemon, false, 0.925);
 
             if (damage > maxDamage) {
                 maxDamage = damage;
@@ -401,29 +404,15 @@ public class PolicyAgent
     public boolean willIGetOneShotted(BattleView state, double roll) {
         PokemonView myPokemon = state.getTeam1View().getActivePokemonView();
         PokemonView oppPokemon = state.getTeam2View().getActivePokemonView();
-        Pokemon real_myPokemon = viewToPokemon(myPokemon);
-        Pokemon real_oppPokemon = viewToPokemon(oppPokemon);
         List<MoveView> oppMoves = oppPokemon.getAvailableMoves();
         for (MoveView oppMove : oppMoves) {
 
             if (oppMove.getPower() == null) {
                 continue;
             }
-            boolean STAB = oppMove.getType().equals(oppPokemon.getCurrentType1())
-                    || oppMove.getType().equals(oppPokemon.getCurrentType2());
-
-            Move real_oppMove = new Move(oppMove);
 
             // assume max roll no crit
-            int damage = DamageEquation.calculateDamage(
-                    real_oppMove,
-                    1,
-                    real_oppPokemon,
-                    real_myPokemon,
-                    STAB,
-                    true,
-                    0,
-                    roll);
+            int damage = computeDamage(oppMove, oppPokemon, myPokemon, false, roll);
 
             if (damage >= myPokemon.getCurrentStat(Stat.HP)) {
                 return true;
@@ -435,28 +424,14 @@ public class PolicyAgent
     public MoveView canIKillOpponent(BattleView state) {
         PokemonView myPokemon = state.getTeam1View().getActivePokemonView();
         PokemonView oppPokemon = state.getTeam2View().getActivePokemonView();
-        Pokemon real_myPokemon = viewToPokemon(myPokemon);
-        Pokemon real_oppPokemon = viewToPokemon(oppPokemon);
         List<MoveView> myMoves = myPokemon.getAvailableMoves();
         for (MoveView moveView : myMoves) {
             if (moveView.getPower() == null) {
                 continue;
             }
-            boolean STAB = moveView.getType().equals(myPokemon.getCurrentType1())
-                    || moveView.getType().equals(myPokemon.getCurrentType2());
-
-            Move real_move = new Move(moveView);
 
             // assume min roll no crit
-            int damage = DamageEquation.calculateDamage(
-                    real_move,
-                    1,
-                    real_myPokemon,
-                    real_oppPokemon,
-                    STAB,
-                    true,
-                    0,
-                    0.85);
+            int damage = computeDamage(moveView, myPokemon, oppPokemon, false, 0.85);
 
             if (damage >= oppPokemon.getCurrentStat(Stat.HP)) {
                 return moveView;
