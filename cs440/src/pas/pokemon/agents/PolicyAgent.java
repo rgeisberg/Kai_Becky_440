@@ -17,6 +17,7 @@ import edu.bu.pas.pokemon.core.Team.TeamView;
 import edu.bu.pas.pokemon.core.DamageEquation;
 import edu.bu.pas.pokemon.core.Move;
 import edu.bu.pas.pokemon.core.Pokemon;
+import edu.bu.pas.pokemon.core.Move.Category;
 import edu.bu.pas.pokemon.core.Pokemon.PokemonView;
 import edu.bu.pas.pokemon.core.enums.Type;
 import edu.bu.pas.pokemon.core.enums.Stat;
@@ -33,6 +34,59 @@ import src.pas.pokemon.senses.CustomSensorArray;
 
 public class PolicyAgent
         extends NeuralQAgent {
+
+    public int computeDamage(
+            MoveView move,
+            PokemonView attacker,
+            PokemonView defender,
+            boolean isCrit,
+            double r) {
+
+        double L = attacker.getLevel();
+        double P = move.getPower();
+
+        Type moveType = move.getType();
+        Category cat = move.getCategory();
+
+        int attackerStat = -1;
+        int defenderStat = -1;
+
+        if (cat == Category.PHYSICAL) {
+            attackerStat = attacker.getCurrentStat(Stat.ATK);
+            defenderStat = defender.getCurrentStat(Stat.DEF);
+        } else if (cat == Category.SPECIAL) {
+            attackerStat = attacker.getCurrentStat(Stat.SPATK);
+            defenderStat = defender.getCurrentStat(Stat.SPDEF);
+        } else {
+            throw new IllegalArgumentException("Move category must be PHYSICAL or SPECIAL for damage calculation.");
+        }
+
+        double C = isCrit ? 2.0 : 1.0;
+
+        // STAB = 1.5 if at least one type of attacker matches move type, else 1.0
+        double STAB = 1.0;
+        if (moveType == attacker.getCurrentType1()) {
+            STAB = 1.5;
+        } else if (attacker.getCurrentType2() != null && moveType == attacker.getCurrentType2()) {
+            STAB = 1.5;
+        }
+
+        // Type effectiveness
+        double T = getTypeEffectiveness(moveType, defender.getCurrentType1());
+        if (defender.getCurrentType2() != null) {
+            T *= getTypeEffectiveness(moveType, defender.getCurrentType2());
+        }
+
+        // ---- formula ----
+        double numerator = (((2 * L * C) / 5.0) + 2) * P * ((double) attackerStat / (double) defenderStat);
+        double denominator = 50.0;
+
+        double baseTerm = (numerator / denominator) + 2;
+
+        double damageDouble = baseTerm * STAB * T * r;
+
+        return (int) Math.floor(damageDouble);
+    }
 
     private static void logDebugDefault(String message) {
         try (FileWriter fw = new FileWriter("debug.log", true);
@@ -98,13 +152,11 @@ public class PolicyAgent
         qFunction.add(new Tanh()); // non-linear activation function
         // ------------------end of layer 1----------------
         // -------------------layer 2----------------------
-        qFunction.add(new Dense(512, 1024)); // number of input features , number of neurons in this hidden layer
+        qFunction.add(new Dense(512, 1028)); // number of input features , number of neurons in this hidden layer
         qFunction.add(new Tanh()); // non-linear activation function
         // ------------------end of layer 2----------------
-        // -------------------layer 3----------------------
-        qFunction.add(new Dense(1024, 2048)); // number of input features , number of neurons in this hidden layer
+        qFunction.add(new Dense(1028, 2048)); // number of input features , number of neurons in this hidden layer
         qFunction.add(new Tanh()); // non-linear activation function
-        // ------------------end of layer 3----------------
         // ------------------Final Layer-------------------
         qFunction.add(new Dense(2048, 1)); // final dense layer, maps to 1
         return qFunction;
@@ -177,15 +229,7 @@ public class PolicyAgent
                     Pokemon real_myPokemon = viewToPokemon(myPokemon);
                     Pokemon real_oppPokemon = viewToPokemon(oppPokemon);
 
-                    int damage = DamageEquation.calculateDamage(
-                            real_move,
-                            1,
-                            real_myPokemon,
-                            real_oppPokemon,
-                            STAB,
-                            true,
-                            0,
-                            0.85);
+                    int damage = computeDamage(moveView, myPokemon, oppPokemon, false, 0.85);
 
                     if (damage >= oppPokemon.getCurrentStat(Stat.HP)) {
                         return i;
@@ -220,15 +264,7 @@ public class PolicyAgent
 
                     Move real_oppMove = new Move(oppMove);
 
-                    int damage = DamageEquation.calculateDamage(
-                            real_oppMove,
-                            1,
-                            real_myPokemon,
-                            real_oppPokemon,
-                            STAB,
-                            true,
-                            0,
-                            1.0);
+                    int damage = computeDamage(oppMove, oppPokemon, myPokemon, false, 1.0);
 
                     if (damage >= myPokemon.getCurrentStat(Stat.HP)) {
                         // we would get oneshot, try next pokemon
@@ -251,16 +287,7 @@ public class PolicyAgent
                     boolean STAB = moveView.getType().equals(myPokemon.getCurrentType1())
                             || moveView.getType().equals(myPokemon.getCurrentType2());
 
-                    Move real_move = new Move(moveView);
-                    int damage = DamageEquation.calculateDamage(
-                            real_move,
-                            1,
-                            real_myPokemon,
-                            real_oppPokemon,
-                            STAB,
-                            true,
-                            0,
-                            0.85);
+                    int damage = computeDamage(moveView, myPokemon, oppPokemon, false, 0.85);
 
                     if (damage >= oppPokemon.getCurrentStat(Stat.HP)) {
                         return i;
@@ -349,16 +376,13 @@ public class PolicyAgent
 
     // exploration schedule
     private int maxEpisodes = 500;
-    private double epsilonStart = 1.0; // explore a lot at the beginning
-    private double epsilonEnd = 0.05; // small amount of exploration later
     private int episodesDone = 0;
     private Random rng = new Random();
-    private boolean lastGameWasCounted = false;
 
     private double currentEpsilon() {
         // fraction goes from 0 to 1 as we move through 70% of training
         double fraction = Math.min(1.0, (double) episodesDone / (0.9 * maxEpisodes));
-        return fraction * (epsilonEnd - epsilonStart);
+        return fraction * (0.95);
     }
 
     @Override

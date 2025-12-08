@@ -11,6 +11,8 @@ import edu.bu.pas.pokemon.core.Team.TeamView;
 import edu.bu.pas.pokemon.linalg.Matrix;
 import edu.bu.pas.pokemon.core.enums.Type;
 import edu.bu.pas.pokemon.core.enums.Stat;
+import edu.bu.pas.pokemon.core.Move.Category;
+
 import java.util.List;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -38,56 +40,113 @@ public class CustomSensorArray
         return Type.getEffectivenessModifier(attackType, defendType);
     }
 
-    public double[] encodeMove(MoveView move, PokemonView myPokemon, PokemonView oppPokemon) {
-        // Encode move with 6 features:
-        // 1. Type (ordinal)
-        // 2. Base power
-        // 3. Effective accuracy (base accuracy adjusted by opponent Evasive)
-        // 4. Category (ordinal)
-        // 5. Type effectiveness multiplier
-        // 6. STAB indicator (1.0 if move type matches pokemon type, 0.0 otherwise)
+    public int computeDamage(
+            MoveView move,
+            PokemonView attacker,
+            PokemonView defender,
+            boolean isCrit,
+            double r) {
 
-        double[] encoded = new double[6];
+        double L = attacker.getLevel();
+        double P = move.getPower();
 
-        // 1. Move type
-        encoded[0] = move.getType().ordinal();
-
-        // 2. Base power
-        if (move.getPower() == null) {
-            encoded[1] = 0;
-        } else {
-            encoded[1] = move.getPower();
-        }
-
-        // 3. Effective accuracy (base accuracy - opponent Evasive boost)
-
-        if (move.getAccuracy() == null) {
-            encoded[2] = 120;
-        } else {
-            Integer baseAccuracy = move.getAccuracy();
-            Integer oppEvasive = oppPokemon.getCurrentStat(Stat.EVASIVE);
-            encoded[2] = baseAccuracy - oppEvasive;
-        }
-
-        // 4. Category
-        encoded[3] = move.getCategory().ordinal();
-
-        // 5. Type effectiveness multiplier
         Type moveType = move.getType();
-        Type oppType1 = oppPokemon.getCurrentType1();
-        Type oppType2 = oppPokemon.getCurrentType2();
-        double effectiveness = getTypeEffectiveness(moveType, oppType1);
-        if (oppType2 != null) {
-            effectiveness *= getTypeEffectiveness(moveType, oppType2);
+        Category cat = move.getCategory();
+
+        int attackerStat = -1;
+        int defenderStat = -1;
+
+        if (cat == Category.PHYSICAL) {
+            attackerStat = attacker.getCurrentStat(Stat.ATK);
+            defenderStat = defender.getCurrentStat(Stat.DEF);
+        } else if (cat == Category.SPECIAL) {
+            attackerStat = attacker.getCurrentStat(Stat.SPATK);
+            defenderStat = defender.getCurrentStat(Stat.SPDEF);
+        } else {
+            throw new IllegalArgumentException("Move category must be PHYSICAL or SPECIAL for damage calculation.");
         }
-        encoded[4] = effectiveness;
 
-        // 6. STAB (same type attack boost) indicator
-        Type myType1 = myPokemon.getCurrentType1();
-        Type myType2 = myPokemon.getCurrentType2();
-        boolean hasSTAB = moveType.equals(myType1) || (myType2 != null && moveType.equals(myType2));
-        encoded[5] = hasSTAB ? 1.0 : 0.0;
+        double C = isCrit ? 2.0 : 1.0;
 
+        // STAB = 1.5 if at least one type of attacker matches move type, else 1.0
+        double STAB = 1.0;
+        if (moveType == attacker.getCurrentType1()) {
+            STAB = 1.5;
+        } else if (attacker.getCurrentType2() != null && moveType == attacker.getCurrentType2()) {
+            STAB = 1.5;
+        }
+
+        // Type effectiveness
+        double T = getTypeEffectiveness(moveType, defender.getCurrentType1());
+        if (defender.getCurrentType2() != null) {
+            T *= getTypeEffectiveness(moveType, defender.getCurrentType2());
+        }
+
+        // ---- formula ----
+        double numerator = (((2 * L * C) / 5.0) + 2) * P * ((double) attackerStat / (double) defenderStat);
+        double denominator = 50.0;
+
+        double baseTerm = (numerator / denominator) + 2;
+
+        double damageDouble = baseTerm * STAB * T * r;
+
+        return (int) Math.floor(damageDouble);
+    }
+
+    public double[] encodeMove(MoveView move, PokemonView myPokemon, PokemonView oppPokemon) {
+
+        double[] encoded = new double[2];
+        // Pokemon real_myPokemon = viewToPokemon(myPokemon);
+        // Pokemon real_oppPokemon = viewToPokemon(oppPokemon);
+        Type myMoveType = move.getType();
+        Type opType1 = oppPokemon.getCurrentType1();
+        Type opType2 = oppPokemon.getCurrentType2();
+
+        // double typeMult = 1;
+
+        // typeMult *= getTypeEffectiveness(myMoveType, opType1);
+        // if (opType2 != null) {
+        // typeMult *= getTypeEffectiveness(myMoveType, opType2);
+        // }
+
+        boolean STAB = false;
+
+        if (myMoveType == myPokemon.getCurrentType1()) {
+            STAB = true;
+        } else if (myPokemon.getCurrentType2() != null && myMoveType == myPokemon.getCurrentType2()) {
+            STAB = true;
+        }
+
+        // double check that the move has power just in case
+        if (move.getPower() == null) {
+            // look into these 1 hit ko moves but for now just assume 100 damage
+            encoded[0] = 100.0;
+            encoded[1] = 0.0;
+            return encoded;
+        }
+
+        int damage = computeDamage(
+                move,
+                myPokemon,
+                oppPokemon,
+                false,
+                0.925);
+
+        double accuracy = 1.0;
+        if (move.getAccuracy() != null) {
+            accuracy = move.getAccuracy() / 100.0;
+        }
+        double baseDamage = damage / 0.925;
+
+        // variance of uniform(0.85, 1.0)
+        double varR = (0.15 * 0.15) / 12.0;
+
+        double varHit = baseDamage * baseDamage * varR;
+
+        double damageExpectation = (double) damage * accuracy;
+        double damageVariance = accuracy * varHit + accuracy * (1.0 - accuracy) * (damage * damage);
+        encoded[0] = damageExpectation;
+        encoded[1] = damageVariance;
         return encoded;
     }
 
