@@ -7,6 +7,7 @@ import edu.bu.pas.pokemon.agents.rewards.RewardFunction;
 import edu.bu.pas.pokemon.agents.rewards.RewardFunction.RewardType;
 import edu.bu.pas.pokemon.core.Pokemon;
 import edu.bu.pas.pokemon.core.Battle.BattleView;
+import edu.bu.pas.pokemon.core.Battle;
 import edu.bu.pas.pokemon.core.Move.MoveView;
 import edu.bu.pas.pokemon.core.Pokemon.PokemonView;
 import edu.bu.pas.pokemon.core.Team.TeamView;
@@ -173,12 +174,22 @@ public class CustomRewardFunction
         teamHPReward = Math.max(-2.0, Math.min(2.0, teamHPReward));
         statusReward = Math.max(-6.0, Math.min(6.0, statusReward));
         // then combine with weights
+
+        Battle battle = new Battle(state);
+        int numTurns = battle.getTurnNumber();
+
         double reward = 0.0;
         if (winnerReward != 0) {
             reward = winnerReward;
         } else {
             reward = 0.25 * damageReward + 30 * koReward;
         }
+
+        boolean pastTurn75 = numTurns > 75;
+
+        double stallPunish = pastTurn75 ? -0.5 : 0.0;
+
+        reward = reward - stallPunish * (numTurns - 75);
 
         reward = Math.max(-100.0, Math.min(100.0, reward));
 

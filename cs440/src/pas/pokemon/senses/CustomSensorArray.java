@@ -83,6 +83,59 @@ public class CustomSensorArray
         return mon;
     }
 
+    public int computeDamage(
+            MoveView move,
+            PokemonView attacker,
+            PokemonView defender,
+            boolean isCrit,
+            double r) {
+
+        double L = attacker.getLevel();
+        double P = move.getPower();
+
+        Type moveType = move.getType();
+        Category cat = move.getCategory();
+
+        int attackerStat = -1;
+        int defenderStat = -1;
+
+        if (cat == Category.PHYSICAL) {
+            attackerStat = attacker.getCurrentStat(Stat.ATK);
+            defenderStat = defender.getCurrentStat(Stat.DEF);
+        } else if (cat == Category.SPECIAL) {
+            attackerStat = attacker.getCurrentStat(Stat.SPATK);
+            defenderStat = defender.getCurrentStat(Stat.SPDEF);
+        } else {
+            throw new IllegalArgumentException("Move category must be PHYSICAL or SPECIAL for damage calculation.");
+        }
+
+        double C = isCrit ? 2.0 : 1.0;
+
+        // STAB = 1.5 if at least one type of attacker matches move type, else 1.0
+        double STAB = 1.0;
+        if (moveType == attacker.getCurrentType1()) {
+            STAB = 1.5;
+        } else if (attacker.getCurrentType2() != null && moveType == attacker.getCurrentType2()) {
+            STAB = 1.5;
+        }
+
+        // Type effectiveness
+        double T = getTypeEffectiveness(moveType, defender.getCurrentType1());
+        if (defender.getCurrentType2() != null) {
+            T *= getTypeEffectiveness(moveType, defender.getCurrentType2());
+        }
+
+        // ---- formula ----
+        double numerator = (((2 * L * C) / 5.0) + 2) * P * ((double) attackerStat / (double) defenderStat);
+        double denominator = 50.0;
+
+        double baseTerm = (numerator / denominator) + 2;
+
+        double damageDouble = baseTerm * STAB * T * r;
+
+        return (int) Math.floor(damageDouble);
+    }
+
     public double[] encodeMove(MoveView move, PokemonView myPokemon, PokemonView oppPokemon) {
 
         double[] encoded = new double[2];
@@ -116,14 +169,11 @@ public class CustomSensorArray
             return encoded;
         }
 
-        int damage = DamageEquation.calculateDamage(
-                real_move,
-                1,
-                real_myPokemon,
-                real_oppPokemon,
-                STAB,
-                true,
-                0,
+        int damage = computeDamage(
+                move,
+                myPokemon,
+                oppPokemon,
+                false,
                 0.925);
 
         double accuracy = 1.0;
