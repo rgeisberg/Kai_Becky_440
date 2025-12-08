@@ -185,7 +185,11 @@ public class CustomRewardFunction
             reward = 0.25 * damageReward + 30 * koReward;
         }
 
-        reward = reward - 0.05 * numTurns;
+        boolean pastTurn75 = numTurns > 75;
+
+        double stallPunish = pastTurn75 ? -0.5 : 0.0;
+
+        reward = reward - stallPunish * (numTurns - 75);
 
         reward = Math.max(-100.0, Math.min(100.0, reward));
 
