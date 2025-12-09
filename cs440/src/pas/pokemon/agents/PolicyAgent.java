@@ -185,9 +185,9 @@ public class PolicyAgent
             evs[st.ordinal()] = pv.getEV(st);
         }
 
-        int[] basestats = new int[8];
+        int[] initialStats = new int[8];
         for (Stat st : stats) {
-            basestats[st.ordinal()] = pv.getBaseStat(st);
+            initialStats[st.ordinal()] = pv.getInitialStat(st);
         }
 
         Pokemon mon = Pokemon.makeNewPokemon(
@@ -197,7 +197,7 @@ public class PolicyAgent
                 pv.getLevel(),
                 ivs,
                 evs,
-                basestats);
+                initialStats);
         return mon;
     }
 
