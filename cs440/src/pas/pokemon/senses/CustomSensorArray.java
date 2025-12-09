@@ -33,7 +33,7 @@ public class CustomSensorArray
     }
 
     private static void logDebug(String message) {
-        try (FileWriter fw = new FileWriter("debug.log", true);
+        try (FileWriter fw = new FileWriter("sensorNorm3.log", true);
                 PrintWriter pw = new PrintWriter(fw)) {
             pw.println(message);
         } catch (IOException e) {
@@ -139,7 +139,6 @@ public class CustomSensorArray
     public double[] encodeMove(MoveView move, PokemonView myPokemon, PokemonView oppPokemon) {
 
         double[] encoded = new double[2];
-        Move real_move = new Move(move);
         Pokemon real_myPokemon = viewToPokemon(myPokemon);
         Pokemon real_oppPokemon = viewToPokemon(oppPokemon);
         Type myMoveType = move.getType();
@@ -162,7 +161,7 @@ public class CustomSensorArray
         }
 
         // double check that the move has power just in case
-        if (real_move.getPower() == null) {
+        if (move.getPower() == null) {
             // look into these 1 hit ko moves but for now just assume 100 damage
             encoded[0] = 100.0;
             encoded[1] = 0.0;
@@ -177,8 +176,8 @@ public class CustomSensorArray
                 0.925);
 
         double accuracy = 1.0;
-        if (real_move.getAccuracy() != null) {
-            accuracy = real_move.getAccuracy() / 100.0;
+        if (move.getAccuracy() != null) {
+            accuracy = move.getAccuracy() / 100.0;
         }
         double baseDamage = damage / 0.925;
 
@@ -220,10 +219,10 @@ public class CustomSensorArray
 
                     // 2: mySpeed
                     // 7: oppSpeed
-                    // Typical speeds 0200
+                    // Typical speeds 300
                     case 2:
                     case 7:
-                        nv = v / 200.0;
+                        nv = v / 300.0;
                         break;
 
                     // 3: myHP
@@ -320,10 +319,10 @@ public class CustomSensorArray
 
         // attack and special attack ratios
 
-        double myAttackRatio = myATK / oppDEF;
-        double mySAttackRatio = mySATK / oppSPDEF;
-        double oppAttackRatio = oppATK / myDEF;
-        double oppSAttackRatio = oppSATK / mySPDEF;
+        double myAttackRatio = (double) myATK / oppDEF;
+        double mySAttackRatio = (double) mySATK / oppSPDEF;
+        double oppAttackRatio = (double) oppATK / myDEF;
+        double oppSAttackRatio = (double) oppSATK / mySPDEF;
 
         // speeds and current hp
 
@@ -390,6 +389,23 @@ public class CustomSensorArray
                 throw new IllegalStateException("Null value found at sensor index " + i);
             }
         }
+
+        // Log normalized sensor values
+        // String[] featureNames = {
+        // "myAttackRatio", "mySAttackRatio", "mySpeed", "myHP", "myAliveCount",
+        // "oppAttackRatio", "oppSAttackRatio", "oppSpeed", "oppHP", "oppAliveCount",
+        // "moveCategory", "moveDamageExp", "moveDamageVar"
+        // };
+        // StringBuilder sb = new StringBuilder("Normalized Sensors: {");
+        // for (int i = 0; i < normalizedSensorValues.getShape().getNumCols(); i++) {
+        // sb.append(featureNames[i]).append("=").append(String.format("%.4f",
+        // normalizedSensorValues.get(0, i)));
+        // if (i < normalizedSensorValues.getShape().getNumCols() - 1) {
+        // sb.append(", ");
+        // }
+        // }
+        // sb.append("}");
+        // logDebug(sb.toString());
 
         return normalizedSensorValues;
     }
