@@ -291,7 +291,7 @@ public class CustomSensorArray
 
     public Matrix getSensorValues(final BattleView state, final MoveView action) {
 
-        int numfeatures = 13;
+        int numfeatures = 14;
 
         // matrix for features
         Matrix sensorValues = Matrix.zeros(1, numfeatures);
@@ -379,6 +379,7 @@ public class CustomSensorArray
         sensorValues.set(0, sensorIdx++, moveCategory);
         sensorValues.set(0, sensorIdx++, moveEncoding[0]);
         sensorValues.set(0, sensorIdx++, moveEncoding[1]);
+        sensorValues.set(0, sensorIdx++, 1.0); // non zero intercept
 
         Matrix normalizedSensorValues = normalizeSensorValues(sensorValues);
 
