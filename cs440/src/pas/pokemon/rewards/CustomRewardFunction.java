@@ -182,12 +182,12 @@ public class CustomRewardFunction
         if (winnerReward != 0) {
             reward = winnerReward;
         } else {
-            reward = 0.25 * damageReward + 30 * koReward;
+            reward = 0.3 * damageReward + 40 * koReward;
         }
 
         boolean pastTurn75 = numTurns > 75;
 
-        double stallPunish = pastTurn75 ? -0.5 : 0.0;
+        double stallPunish = pastTurn75 ? -1.5 : 0.0;
 
         reward = reward - stallPunish * (numTurns - 75);
 
