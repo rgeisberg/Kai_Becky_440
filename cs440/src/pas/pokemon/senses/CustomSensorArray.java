@@ -67,9 +67,9 @@ public class CustomSensorArray
             evs[st.ordinal()] = pv.getEV(st);
         }
 
-        int[] basestats = new int[8];
+        int[] InitialStats = new int[8];
         for (Stat st : stats) {
-            basestats[st.ordinal()] = pv.getBaseStat(st);
+            InitialStats[st.ordinal()] = pv.getInitialStat(st);
         }
 
         Pokemon mon = Pokemon.makeNewPokemon(
@@ -79,7 +79,7 @@ public class CustomSensorArray
                 pv.getLevel(),
                 ivs,
                 evs,
-                basestats);
+                InitialStats);
         return mon;
     }
 
@@ -209,7 +209,7 @@ public class CustomSensorArray
         double damageVariance = accuracy * varHit + accuracy * (1.0 - accuracy) * (damage * damage);
         encoded[0] = damageExpectation;
 
-        double damageFrac = damageExpectation / oppPokemon.getBaseStat(Stat.HP);
+        double damageFrac = damageExpectation / oppPokemon.getInitialStat(Stat.HP);
 
         // encoded[1] = damageVariance; ignore variance for now
         encoded[1] = damageFrac; // instead try this damage fraction
@@ -323,8 +323,8 @@ public class CustomSensorArray
         // speed and hp features
         int myFaster = mySpeed > oppSpeed ? 1 : 0;
         double speedRatio = (double) mySpeed / oppSpeed;
-        double myHPFrac = (double) myHP / myActivePokemon.getBaseStat(Stat.HP);
-        double oppHPFrac = (double) oppHP / oppActivePokemon.getBaseStat(Stat.HP);
+        double myHPFrac = (double) myHP / myActivePokemon.getInitialStat(Stat.HP);
+        double oppHPFrac = (double) oppHP / oppActivePokemon.getInitialStat(Stat.HP);
 
         // num pokemon alive
 
