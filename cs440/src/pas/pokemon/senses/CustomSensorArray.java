@@ -67,9 +67,9 @@ public class CustomSensorArray
             evs[st.ordinal()] = pv.getEV(st);
         }
 
-        int[] basestats = new int[8];
+        int[] InitialStats = new int[8];
         for (Stat st : stats) {
-            basestats[st.ordinal()] = pv.getBaseStat(st);
+            InitialStats[st.ordinal()] = pv.getInitialStat(st);
         }
 
         Pokemon mon = Pokemon.makeNewPokemon(
@@ -79,7 +79,7 @@ public class CustomSensorArray
                 pv.getLevel(),
                 ivs,
                 evs,
-                basestats);
+                InitialStats);
         return mon;
     }
 

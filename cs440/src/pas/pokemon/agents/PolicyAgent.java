@@ -187,9 +187,9 @@ public class PolicyAgent
             evs[st.ordinal()] = pv.getEV(st);
         }
 
-        int[] basestats = new int[8];
+        int[] InitialStats = new int[8];
         for (Stat st : stats) {
-            basestats[st.ordinal()] = pv.getBaseStat(st);
+            InitialStats[st.ordinal()] = pv.getInitialStat(st);
         }
 
         Pokemon mon = Pokemon.makeNewPokemon(
@@ -199,7 +199,7 @@ public class PolicyAgent
                 pv.getLevel(),
                 ivs,
                 evs,
-                basestats);
+                InitialStats);
         return mon;
     }
 
@@ -482,7 +482,7 @@ public class PolicyAgent
                 boolean likelyCase = willIGetOneShotted(view, 0.925);
                 boolean outspeed = AmIFaster(view);
                 MoveView killerMove = canIKillOpponent(view);
-                double hpFrac = (double) myPokemon.getCurrentStat(Stat.HP) / (double) myPokemon.getBaseStat(Stat.HP);
+                double hpFrac = (double) myPokemon.getCurrentStat(Stat.HP) / (double) myPokemon.getInitialStat(Stat.HP);
 
                 // if we can kill then do it obviously
                 if (outspeed && killerMove != null) {
