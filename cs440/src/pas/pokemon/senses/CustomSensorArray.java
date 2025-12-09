@@ -83,6 +83,25 @@ public class CustomSensorArray
         return mon;
     }
 
+    public MoveView canIKillOpponent(BattleView state) {
+        PokemonView myPokemon = state.getTeam1View().getActivePokemonView();
+        PokemonView oppPokemon = state.getTeam2View().getActivePokemonView();
+        List<MoveView> myMoves = myPokemon.getAvailableMoves();
+        for (MoveView moveView : myMoves) {
+            if (moveView.getPower() == null) {
+                continue;
+            }
+
+            // assume min roll no crit
+            int damage = computeDamage(moveView, myPokemon, oppPokemon, false, 0.85);
+
+            if (damage >= oppPokemon.getCurrentStat(Stat.HP)) {
+                return moveView;
+            }
+        }
+        return null;
+    }
+
     public int computeDamage(
             MoveView move,
             PokemonView attacker,
@@ -189,94 +208,64 @@ public class CustomSensorArray
         double damageExpectation = (double) damage * accuracy;
         double damageVariance = accuracy * varHit + accuracy * (1.0 - accuracy) * (damage * damage);
         encoded[0] = damageExpectation;
-        encoded[1] = damageVariance;
+
+        double damageFrac = damageExpectation / oppPokemon.getBaseStat(Stat.HP);
+
+        // encoded[1] = damageVariance; ignore variance for now
+        encoded[1] = damageFrac; // instead try this damage fraction
         return encoded;
     }
 
-    public Matrix normalizeSensorValues(final Matrix sensorValues) {
-        int rows = sensorValues.getShape().getNumRows();
-        int cols = sensorValues.getShape().getNumCols();
+    private Matrix normalizeSensorValues(Matrix raw) {
 
-        Matrix normalized = Matrix.zeros(rows, cols);
+        Matrix norm = Matrix.zeros(1, 19);
 
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                double v = sensorValues.get(r, c);
-                double nv = v;
+        int i = 0;
 
-                switch (c) {
-                    // 0: myAttackRatio
-                    // 1: mySAttackRatio
-                    // 5: oppAttackRatio
-                    // 6: oppSAttackRatio
-                    // Ratios are usually not huge, scale to about [0,1]
-                    case 0:
-                    case 1:
-                    case 5:
-                    case 6:
-                        nv = v / 4.0; // assume ratios rarely > 4
-                        break;
+        // --- Attack ratios ---
+        norm.set(0, i, clamp(raw.get(0, i++), 0.0, 5.0) / 5.0); // myAttackRatio
+        norm.set(0, i, clamp(raw.get(0, i++), 0.0, 5.0) / 5.0); // mySAttackRatio
 
-                    // 2: mySpeed
-                    // 7: oppSpeed
-                    // Typical speeds 300
-                    case 2:
-                    case 7:
-                        nv = v / 300.0;
-                        break;
+        // --- HP Fraction (myHPFrac) ---
+        norm.set(0, i, clamp(raw.get(0, i++), 0.0, 1.0)); // already 0-1
 
-                    // 3: myHP
-                    // 8: oppHP
-                    // HP often in 0400 range
-                    case 3:
-                    case 8:
-                        nv = v / 400.0;
-                        break;
+        // --- Speed features ---
+        norm.set(0, i, raw.get(0, i++)); // myFaster (0/1)
+        norm.set(0, i, clamp(raw.get(0, i++), 0.0, 5.0) / 5.0); // speedRatio
 
-                    // 4: myAliveCount
-                    // 9: oppAliveCount
-                    // In [0, 6]
-                    case 4:
-                    case 9:
-                        nv = v / 6.0;
-                        break;
+        // --- Opponent ratios ---
+        norm.set(0, i, clamp(raw.get(0, i++), 0.0, 5.0) / 5.0); // oppAttackRatio
+        norm.set(0, i, clamp(raw.get(0, i++), 0.0, 5.0) / 5.0); // oppSAttackRatio
 
-                    // 10: move category
-                    // In [0, 3] (0=SWITCH, 1=PHYSICAL, 2=SPECIAL, 3=STATUS)
-                    case 10:
-                        nv = v / 3.0;
-                        break;
+        // --- HP Fraction (oppHPFrac) ---
+        norm.set(0, i, clamp(raw.get(0, i++), 0.0, 1.0)); // already 0-1
 
-                    // 11: move damage expectation
-                    // Roughly similar to HP/damage, scale like HP
-                    case 11:
-                        nv = v / 400.0;
-                        break;
+        // --- Alive counts ---
+        norm.set(0, i, raw.get(0, i++) / 6.0); // myAliveCount
+        norm.set(0, i, raw.get(0, i++) / 6.0); // oppAliveCount
 
-                    // 12: move damage variance
-                    // Can be big; scale more aggressively
-                    case 12:
-                        nv = v / 40000.0;
-                        break;
+        // --- One-hot move category ---
+        norm.set(0, i, raw.get(0, i++)); // isSwitch
+        norm.set(0, i, raw.get(0, i++)); // isPhysical
+        norm.set(0, i, raw.get(0, i++)); // isSpecial
+        norm.set(0, i, raw.get(0, i++)); // isStatus
 
-                    default:
-                        // Fallback: no scaling
-                        nv = v;
-                        break;
-                }
+        // --- Move encoding ---
+        norm.set(0, i, clamp(raw.get(0, i++), 0.0, 300.0) / 300.0); // expected damage
+        norm.set(0, i, clamp(raw.get(0, i++), 0.0, 300.0) / 300.0); // variance
 
-                // Clamp to [-1, 1] to avoid exploding values
-                if (nv > 1.0) {
-                    nv = 1.0;
-                } else if (nv < -1.0) {
-                    nv = -1.0;
-                }
+        // --- Strategic flags ---
+        norm.set(0, i, raw.get(0, i++)); // oneShot (0/1)
+        norm.set(0, i, raw.get(0, i++)); // stabFlag (0/1)
 
-                normalized.set(r, c, nv);
-            }
-        }
+        // --- Type effectiveness ---
+        norm.set(0, i, clamp(raw.get(0, i++), 0.0, 4.0) / 4.0);
 
-        return normalized;
+        return norm;
+    }
+
+    private double clamp(double v, double lo, double hi) {
+        return Math.max(lo, Math.min(hi, v));
     }
 
     private int countFainted(TeamView teamView) {
@@ -291,7 +280,7 @@ public class CustomSensorArray
 
     public Matrix getSensorValues(final BattleView state, final MoveView action) {
 
-        int numfeatures = 13;
+        int numfeatures = 19;
 
         // matrix for features
         Matrix sensorValues = Matrix.zeros(1, numfeatures);
@@ -325,60 +314,101 @@ public class CustomSensorArray
         double oppSAttackRatio = (double) oppSATK / mySPDEF;
 
         // speeds and current hp
-
         int mySpeed = myActivePokemon.getCurrentStat(Stat.SPD);
         int oppSpeed = oppActivePokemon.getCurrentStat(Stat.SPD);
 
         int myHP = myActivePokemon.getCurrentStat(Stat.HP);
         int oppHP = oppActivePokemon.getCurrentStat(Stat.HP);
 
+        // speed and hp features
+        int myFaster = mySpeed > oppSpeed ? 1 : 0;
+        double speedRatio = (double) mySpeed / oppSpeed;
+        double myHPFrac = (double) myHP / myActivePokemon.getBaseStat(Stat.HP);
+        double oppHPFrac = (double) oppHP / oppActivePokemon.getBaseStat(Stat.HP);
+
         // num pokemon alive
 
         int myAliveCount = 6 - countFainted(myTeam);
         int oppAliveCount = 6 - countFainted(oppTeam);
 
-        // encode move category: 0=SWITCH, 1=PHYSICAL, 2=SPECIAL, 3=STATUS
-        double moveCategory = 0.0;
         double[] moveEncoding = new double[2];
+
+        // one hot encoding of move category
+        int isSwitch = 0;
+        int isPhysical = 0;
+        int isSpecial = 0;
+        int isStatus = 0;
 
         // encode the action move (2 features)
         if (action instanceof SwitchMove.SwitchMoveView) {
             // Switch move
-            moveCategory = 0.0;
+            isSwitch = 1;
             moveEncoding[0] = 0.0;
             moveEncoding[1] = 0.0;
         } else {
             Category cat = action.getCategory();
             if (cat == Category.PHYSICAL) {
-                moveCategory = 1.0;
+                isPhysical = 1;
                 moveEncoding = encodeMove(action, myActivePokemon, oppActivePokemon);
             } else if (cat == Category.SPECIAL) {
-                moveCategory = 2.0;
+                isSpecial = 1;
                 moveEncoding = encodeMove(action, myActivePokemon, oppActivePokemon);
             } else {
                 // STATUS move
-                moveCategory = 3.0;
+                isStatus = 1;
                 moveEncoding[0] = 0.0;
                 moveEncoding[1] = 0.0;
             }
         }
+
+        int oneShot = 0;
+        MoveView killMove = canIKillOpponent(state);
+        if (killMove != null) {
+            oneShot = 1;
+        }
+
+        int stabFlag = 0;
+
+        Type actionType = action.getType();
+
+        if (actionType == myActivePokemon.getCurrentType1()) {
+            stabFlag = 1;
+        } else if (myActivePokemon.getCurrentType2() != null && actionType == myActivePokemon.getCurrentType2()) {
+            stabFlag = 1;
+        }
+
+        double effectivenessFlag = 1;
+
+        effectivenessFlag *= getTypeEffectiveness(actionType, oppActivePokemon.getCurrentType1());
+
+        if (oppActivePokemon.getCurrentType2() != null) {
+            effectivenessFlag *= getTypeEffectiveness(actionType, oppActivePokemon.getCurrentType2());
+        }
+
         int sensorIdx = 0;
 
         sensorValues.set(0, sensorIdx++, myAttackRatio);
         sensorValues.set(0, sensorIdx++, mySAttackRatio);
-        sensorValues.set(0, sensorIdx++, mySpeed);
-        sensorValues.set(0, sensorIdx++, myHP);
-        sensorValues.set(0, sensorIdx++, myAliveCount);
+        sensorValues.set(0, sensorIdx++, myHPFrac);
+        sensorValues.set(0, sensorIdx++, myFaster);
+        sensorValues.set(0, sensorIdx++, speedRatio);
 
         sensorValues.set(0, sensorIdx++, oppAttackRatio);
         sensorValues.set(0, sensorIdx++, oppSAttackRatio);
-        sensorValues.set(0, sensorIdx++, oppSpeed);
-        sensorValues.set(0, sensorIdx++, oppHP);
+        sensorValues.set(0, sensorIdx++, oppHPFrac);
+        sensorValues.set(0, sensorIdx++, myAliveCount);
         sensorValues.set(0, sensorIdx++, oppAliveCount);
 
-        sensorValues.set(0, sensorIdx++, moveCategory);
+        sensorValues.set(0, sensorIdx++, isSwitch);
+        sensorValues.set(0, sensorIdx++, isPhysical);
+        sensorValues.set(0, sensorIdx++, isSpecial);
+        sensorValues.set(0, sensorIdx++, isStatus);
+
         sensorValues.set(0, sensorIdx++, moveEncoding[0]);
         sensorValues.set(0, sensorIdx++, moveEncoding[1]);
+        sensorValues.set(0, sensorIdx++, oneShot);
+        sensorValues.set(0, sensorIdx++, stabFlag);
+        sensorValues.set(0, sensorIdx++, effectivenessFlag);
 
         Matrix normalizedSensorValues = normalizeSensorValues(sensorValues);
 
