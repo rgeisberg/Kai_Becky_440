@@ -314,8 +314,8 @@ public class CustomSensorArray
 
         int oppATK = oppActivePokemon.getCurrentStat(Stat.ATK);
         int oppDEF = oppActivePokemon.getCurrentStat(Stat.DEF);
-        int oppSATK = myActivePokemon.getCurrentStat(Stat.SPATK);
-        int oppSPDEF = myActivePokemon.getCurrentStat(Stat.SPDEF);
+        int oppSATK = oppActivePokemon.getCurrentStat(Stat.SPATK);
+        int oppSPDEF = oppActivePokemon.getCurrentStat(Stat.SPDEF);
 
         // attack and special attack ratios
 
@@ -391,20 +391,21 @@ public class CustomSensorArray
         }
 
         // Log normalized sensor values
-        String[] featureNames = {
-                "myAttackRatio", "mySAttackRatio", "mySpeed", "myHP", "myAliveCount",
-                "oppAttackRatio", "oppSAttackRatio", "oppSpeed", "oppHP", "oppAliveCount",
-                "moveCategory", "moveDamageExp", "moveDamageVar"
-        };
-        StringBuilder sb = new StringBuilder("Normalized Sensors: {");
-        for (int i = 0; i < normalizedSensorValues.getShape().getNumCols(); i++) {
-            sb.append(featureNames[i]).append("=").append(String.format("%.4f", normalizedSensorValues.get(0, i)));
-            if (i < normalizedSensorValues.getShape().getNumCols() - 1) {
-                sb.append(", ");
-            }
-        }
-        sb.append("}");
-        logDebug(sb.toString());
+        // String[] featureNames = {
+        // "myAttackRatio", "mySAttackRatio", "mySpeed", "myHP", "myAliveCount",
+        // "oppAttackRatio", "oppSAttackRatio", "oppSpeed", "oppHP", "oppAliveCount",
+        // "moveCategory", "moveDamageExp", "moveDamageVar"
+        // };
+        // StringBuilder sb = new StringBuilder("Normalized Sensors: {");
+        // for (int i = 0; i < normalizedSensorValues.getShape().getNumCols(); i++) {
+        // sb.append(featureNames[i]).append("=").append(String.format("%.4f",
+        // normalizedSensorValues.get(0, i)));
+        // if (i < normalizedSensorValues.getShape().getNumCols() - 1) {
+        // sb.append(", ");
+        // }
+        // }
+        // sb.append("}");
+        // logDebug(sb.toString());
 
         return normalizedSensorValues;
     }
