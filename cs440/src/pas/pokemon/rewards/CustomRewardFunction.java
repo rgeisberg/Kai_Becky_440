@@ -40,13 +40,13 @@ public class CustomRewardFunction
     }
 
     // ------------------------- Helpers for Rewards----------------------------
-    private double teamHPFraction(TeamView team) {
+    private double teamHP(TeamView team) {
         double sum = 0.0;
-        for (int i = 0; i < team.size(); i++) {
+        for (int i = 0; i < 6; i++) {
             PokemonView view = team.getPokemonView(i);
             int cur = view.getCurrentStat(Stat.HP);
-            int max = view.getBaseStat(Stat.HP);
-            sum += (double) cur / max;
+            // int max = view.getInitialStat(Stat.HP);
+            sum += (double) cur;
         }
         return sum; // in [0, teamSize]
     }
@@ -63,7 +63,7 @@ public class CustomRewardFunction
 
     private int statusScore(TeamView team) {
         int score = 0;
-        for (int i = 0; i < team.size(); i++) {
+        for (int i = 0; i < 6; i++) {
             PokemonView view = team.getPokemonView(i);
             NonVolatileStatus status = view.getNonVolatileStatus();
             if (status != NonVolatileStatus.NONE) { // whatever the API gives you
@@ -71,6 +71,14 @@ public class CustomRewardFunction
             }
         }
         return score;
+    }
+
+    private double[] pokemonsHP(TeamView team) {
+        double[] pokeHP = new double[6];
+        for (int i = 0; i < team.size(); i++) {
+            pokeHP[i] = team.getPokemonView(i).getCurrentStat(Stat.HP);
+        }
+        return pokeHP;
     }
 
     // -----------------------------------------------------
@@ -103,13 +111,19 @@ public class CustomRewardFunction
         int faintedOppBefore = countFainted(state.getTeam2View()); // fainted before move *op pokemon*
         double koReward = 0.0;
 
-        double myHPFracBefore = teamHPFraction(state.getTeam1View());
-        double oppHPFracBefore = teamHPFraction(state.getTeam2View());
+        double myHPFracBefore = teamHP(state.getTeam1View());
+        double oppHPFracBefore = teamHP(state.getTeam2View());
         double teamHPReward = 0.0;
 
         int myStatusBefore = statusScore(state.getTeam1View());
         int oppStatusBefore = statusScore(state.getTeam2View());
         double statusReward = 0.0;
+
+        int myOriginalIndex = state.getTeam1View().getActivePokemonIdx();
+        int oppOriginalIndex = state.getTeam2View().getActivePokemonIdx();
+
+        double[] myPokemonHealth = pokemonsHP(state.getTeam1View());
+        double[] oppPokemonHealth = pokemonsHP(state.getTeam2View());
         // ----------------- List of OG/Pre move stats------------------------
 
         // -----calculate how many (if any) pokemon fainted after the move applied------
@@ -123,17 +137,13 @@ public class CustomRewardFunction
         // ----------------------------------------------------------
 
         // ------------ HP STATS overall team -----------------------------------
-        double myHPFracAfter = teamHPFraction(nextState.getTeam1View());
-        double oppHPFracAfter = teamHPFraction(nextState.getTeam2View());
-        double deltaAdvantage = (myHPFracAfter - oppHPFracAfter) - (myHPFracBefore - oppHPFracBefore);
-        teamHPReward += deltaAdvantage;
+        double myHPFracAfter = teamHP(nextState.getTeam1View());
+        double oppHPFracAfter = teamHP(nextState.getTeam2View());
+        double myDelta = myHPFracBefore - myHPFracAfter;
+        double oppDelta = oppHPFracBefore - oppHPFracAfter;
+        double Delta = myDelta - oppDelta;
         // ------------------------------------------------------------------
 
-        // ------------------ Status ---------------------------
-        int myStatusAfter = statusScore(nextState.getTeam1View());
-        int oppStatusAfter = statusScore(nextState.getTeam2View());
-        int deltaStatus = (oppStatusAfter - myStatusAfter) - (oppStatusBefore - myStatusBefore);
-        statusReward += deltaStatus;
         // -----------------------------------------------------
         // ----- terminal win/loss reward -----
         if (nextState.isOver()) {
@@ -160,19 +170,39 @@ public class CustomRewardFunction
                 .getActivePokemonView()
                 .getCurrentStat(Stat.HP);
 
-        int diffMy = originalMyHP - newMyHP; // >0 means I took damage
-        int diffOpp = originalOppHP - newOppHP; // >0 means they took damage
+        double[] myPokemonHealthAfter = pokemonsHP(nextState.getTeam1View());
+        double[] oppPokemonHealthAfter = pokemonsHP(nextState.getTeam2View());
 
-        myHPDamageExp += diffMy;
-        oppHPDamageExp += diffOpp;
+        if (myOriginalIndex != nextState.getTeam1View().getActivePokemonIdx()) {
+            // switch
+            int index = nextState.getTeam1View().getActivePokemonIdx();
+            double diffMy = myPokemonHealth[index] - myPokemonHealthAfter[index];
+
+        } else {
+            // no switch
+            double diffMy = originalMyHP - newMyHP; // >0 means I took damage
+        }
+
+        if (oppOriginalIndex != nextState.getTeam2View().getActivePokemonIdx()) {
+            // op switch !!
+            int index = nextState.getTeam2View().getActivePokemonIdx();
+            double diffMy = oppPokemonHealth[index] - oppPokemonHealthAfter[index];
+
+        } else {
+            // no switch
+            int diffOpp = originalOppHP - newOppHP; // >0 means they took damage
+        }
+
+        // these start at zero dont worry
+        // myHPDamageExp += diffMy;
+        // oppHPDamageExp += diffOpp;
 
         // positive if we expect to deal more damage than we take
-        double damageReward = oppHPDamageExp - myHPDamageExp;
+        double damageReward = Delta;
 
         damageReward = Math.max(-200.0, Math.min(200.0, damageReward));
         koReward = Math.max(-1.0, Math.min(1.0, koReward));
         teamHPReward = Math.max(-2.0, Math.min(2.0, teamHPReward));
-        statusReward = Math.max(-6.0, Math.min(6.0, statusReward));
 
         // get a stat about the turn number to discourage long battles
         Battle battle = new Battle(state);
@@ -185,12 +215,11 @@ public class CustomRewardFunction
             reward = 0.3 * damageReward + 40 * koReward;
         }
 
-        boolean pastTurn75 = numTurns > 75;
+        boolean pastTurn50 = numTurns > 50;
 
-        double stallPunish = pastTurn75 ? -1.5 : 0.0;
+        double stallPunish = pastTurn50 ? -1.5 : 0.0;
 
-        reward = reward - stallPunish * (numTurns - 75);
-
+        reward = reward - stallPunish * (numTurns - 50);
         reward = Math.max(-100.0, Math.min(100.0, reward));
 
         return reward;
