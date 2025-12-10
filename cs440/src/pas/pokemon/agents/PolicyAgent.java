@@ -362,7 +362,7 @@ public class PolicyAgent
     }
 
     // exploration schedule
-    private int maxEpisodes = 400;
+    private int maxEpisodes = 500;
     private int episodesDone = 0;
     private double minEpsilon = 0.05;
     private Random rng = new Random();
