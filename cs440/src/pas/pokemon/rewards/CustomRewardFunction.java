@@ -141,7 +141,7 @@ public class CustomRewardFunction
         double oppHPFracAfter = teamHP(nextState.getTeam2View());
         double myDelta = myHPFracBefore - myHPFracAfter;
         double oppDelta = oppHPFracBefore - oppHPFracAfter;
-        double Delta = myDelta - oppDelta;
+        double Delta = oppDelta - myDelta;
         // ------------------------------------------------------------------
 
         // ------------------ Status ---------------------------
@@ -182,6 +182,7 @@ public class CustomRewardFunction
             // switch
             int index = nextState.getTeam1View().getActivePokemonIdx();
             double diffMy = myPokemonHealth[index] - myPokemonHealthAfter[index];
+            double switchPenalty = -0.3;
 
         } else {
             // no switch
@@ -220,7 +221,7 @@ public class CustomRewardFunction
         if (winnerReward != 0) {
             reward = winnerReward;
         } else {
-            reward = 0.25 * damageReward + 30 * koReward + penalty;
+            reward = 0.25 * damageReward + 30 * koReward + penalty + switchPenalty;
         }
 
         reward = Math.max(-100.0, Math.min(100.0, reward));
