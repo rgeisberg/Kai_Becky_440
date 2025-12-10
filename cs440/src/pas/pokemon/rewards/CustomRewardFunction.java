@@ -61,18 +61,6 @@ public class CustomRewardFunction
         return numFainted;
     }
 
-    private int statusScore(TeamView team) {
-        int score = 0;
-        for (int i = 0; i < 6; i++) {
-            PokemonView view = team.getPokemonView(i);
-            NonVolatileStatus status = view.getNonVolatileStatus();
-            if (status != NonVolatileStatus.NONE) { // whatever the API gives you
-                score++;
-            }
-        }
-        return score;
-    }
-
     private double[] pokemonsHP(TeamView team) {
         double[] pokeHP = new double[6];
         for (int i = 0; i < team.size(); i++) {
@@ -115,10 +103,6 @@ public class CustomRewardFunction
         double oppHPFracBefore = teamHP(state.getTeam2View());
         double teamHPReward = 0.0;
 
-        int myStatusBefore = statusScore(state.getTeam1View());
-        int oppStatusBefore = statusScore(state.getTeam2View());
-        double statusReward = 0.0;
-
         int myOriginalIndex = state.getTeam1View().getActivePokemonIdx();
         int oppOriginalIndex = state.getTeam2View().getActivePokemonIdx();
 
@@ -141,14 +125,9 @@ public class CustomRewardFunction
         double oppHPFracAfter = teamHP(nextState.getTeam2View());
         double myDelta = myHPFracBefore - myHPFracAfter;
         double oppDelta = oppHPFracBefore - oppHPFracAfter;
-        double Delta = myDelta - oppDelta;
+        double Delta = oppDelta - myDelta;
         // ------------------------------------------------------------------
 
-        // ------------------ Status ---------------------------
-        int myStatusAfter = statusScore(nextState.getTeam1View());
-        int oppStatusAfter = statusScore(nextState.getTeam2View());
-        int deltaStatus = (oppStatusAfter - myStatusAfter) - (oppStatusBefore - myStatusBefore);
-        statusReward += deltaStatus;
         // -----------------------------------------------------
         // ----- terminal win/loss reward -----
         if (nextState.isOver()) {
@@ -198,17 +177,11 @@ public class CustomRewardFunction
             int diffOpp = originalOppHP - newOppHP; // >0 means they took damage
         }
 
-        // these start at zero dont worry
-        // myHPDamageExp += diffMy;
-        // oppHPDamageExp += diffOpp;
-
         // positive if we expect to deal more damage than we take
         double damageReward = Delta;
 
         damageReward = Math.max(-200.0, Math.min(200.0, damageReward));
         koReward = Math.max(-1.0, Math.min(1.0, koReward));
-        teamHPReward = Math.max(-2.0, Math.min(2.0, teamHPReward));
-        statusReward = Math.max(-6.0, Math.min(6.0, statusReward));
 
         // get a stat about the turn number to discourage long battles
         Battle battle = new Battle(state);
@@ -218,15 +191,14 @@ public class CustomRewardFunction
         if (winnerReward != 0) {
             reward = winnerReward;
         } else {
-            reward = 0.3 * damageReward + 40 * koReward;
+            reward = 0.45 * damageReward + 35 * koReward;
         }
 
-        boolean pastTurn75 = numTurns > 75;
+        boolean pastTurn50 = numTurns > 50;
 
-        double stallPunish = pastTurn75 ? -1.5 : 0.0;
+        double stallPunish = pastTurn50 ? -5.0 : 0.0;
 
-        reward = reward - stallPunish * (numTurns - 75);
-
+        reward = reward - stallPunish * (numTurns - 50);
         reward = Math.max(-100.0, Math.min(100.0, reward));
 
         return reward;
