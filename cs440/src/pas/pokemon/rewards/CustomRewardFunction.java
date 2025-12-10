@@ -183,7 +183,7 @@ public class CustomRewardFunction
             // switch
             int index = nextState.getTeam1View().getActivePokemonIdx();
             double diffMy = myPokemonHealth[index] - myPokemonHealthAfter[index];
-            switchPenalty -0.3;
+            switchPenalty = -0.3;
 
         } else {
             // no switch
