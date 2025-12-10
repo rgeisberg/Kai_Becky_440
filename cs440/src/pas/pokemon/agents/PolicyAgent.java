@@ -377,13 +377,6 @@ public class PolicyAgent
     private int episodesDone = 0;
     private Random rng = new Random();
 
-    // private double currentEpsilon() {
-    // double start = 0.85; // initial exploration
-    // double end = 0.05; // final exploration
-    // double fraction = Math.min(1.0, (double) episodesDone / maxEpisodes);
-
-    // return start + (end - start) * fraction; // decreases from start → end
-    // }
     private double currentEpsilon() {
         double start = 0.85; // 85% exploring at beginning
         double end = 0.05; // 5% exploring at the end
