@@ -177,12 +177,13 @@ public class CustomRewardFunction
 
         double[] myPokemonHealthAfter = pokemonsHP(nextState.getTeam1View());
         double[] oppPokemonHealthAfter = pokemonsHP(nextState.getTeam2View());
+        double switchPenalty = 0.0;
 
         if (myOriginalIndex != nextState.getTeam1View().getActivePokemonIdx()) {
             // switch
             int index = nextState.getTeam1View().getActivePokemonIdx();
             double diffMy = myPokemonHealth[index] - myPokemonHealthAfter[index];
-            double switchPenalty = -0.3;
+            switchPenalty -0.3;
 
         } else {
             // no switch
