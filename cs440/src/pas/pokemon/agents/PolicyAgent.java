@@ -377,15 +377,28 @@ public class PolicyAgent
     private int episodesDone = 0;
     private Random rng = new Random();
 
+    // private double currentEpsilon() {
+    // double start = 0.85; // initial exploration
+    // double end = 0.05; // final exploration
+    // double fraction = Math.min(1.0, (double) episodesDone / maxEpisodes);
+
+    // return start + (end - start) * fraction; // decreases from start → end
+    // }
     private double currentEpsilon() {
-        // fraction goes from 0 to 1 as we move through 70% of training
-        double fraction = Math.min(1.0, (double) episodesDone / (0.9 * maxEpisodes));
-        return fraction * (0.95);
+        double start = 0.85; // 85% exploring at beginning
+        double end = 0.05; // 5% exploring at the end
+        double decayRate = 0.005; // smaller = slower decay
+
+        return end + (start - end) * Math.exp(-decayRate * episodesDone);
     }
 
     @Override
     public void eval() {
         episodesDone++;
+    }
+
+    private static void logTrackingEpsilon(double epsilon, boolean exploring) {
+        logDebug("epsilon=" + epsilon + "exploring? = " + exploring, "trackingEpsilon.txt");
     }
 
     @Override
@@ -410,6 +423,8 @@ public class PolicyAgent
         // learned model whether you do it or not!
 
         double epsilon = currentEpsilon();
+        boolean exploring = rng.nextDouble() < epsilon;
+        logTrackingEpsilon(epsilon, exploring);
         if (rng.nextDouble() < epsilon) {
             List<MoveView> legalMoves = view.getTeam1View().getActivePokemonView().getAvailableMoves();
             return legalMoves.get(rng.nextInt(legalMoves.size()));
