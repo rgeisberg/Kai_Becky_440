@@ -273,6 +273,7 @@ public class CustomSensorArray
             sensorValues.set(sensorIdx++, 0, moveEncoding[i]);
         }
 
+        sensorValues.set(0, sensorIdx++, 1.0);
         Matrix normalizedSensorValues = normalizeSensorValues(sensorValues);
 
         return normalizedSensorValues.transpose();
