@@ -368,9 +368,10 @@ public class PolicyAgent
     private Random rng = new Random();
 
     private double currentEpsilon() {
-        // fraction goes from 0 to 1 as we move through 70% of training
-        double fraction = Math.min(1.0, (double) episodesDone / (0.9 * maxEpisodes));
-        return Math.max(minEpsilon, fraction * (0.95));
+        double start = 0.85; // 85% exploring at beginning
+        double end = 0.05; // 5% exploring at the end
+        double decayRate = 0.005; // smaller = slower decay
+        return end + (start - end) * Math.exp(-decayRate * episodesDone);
     }
 
     @Override
