@@ -344,19 +344,19 @@ public class PolicyAgent
         // first check if we have a pokemon that can out speed and kill the opponent in
         // one shot
         int switchIdx = outSpeedKill(oppPokemon, myTeam);
-        if (switchIdx != -1) {
+        if (switchIdx != -1 && view.getTeam1View().getPokemonView(switchIdx).hasFainted()) {
             return switchIdx;
         }
 
         switchIdx = slowKill(oppPokemon, myTeam);
-        if (switchIdx != -1) {
+        if (switchIdx != -1 && view.getTeam1View().getPokemonView(switchIdx).hasFainted()) {
             return switchIdx;
         }
 
         // otherwise just pick a good type match up (that is not fainted)
         switchIdx = typeMatchupSwitch(oppPokemon, myTeam);
 
-        if (switchIdx != -1) {
+        if (switchIdx != -1 && view.getTeam1View().getPokemonView(switchIdx).hasFainted()) {
             return switchIdx;
         }
 
