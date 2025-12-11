@@ -207,6 +207,9 @@ public class PolicyAgent
         int opSpeed = oppPokemon.getCurrentStat(Stat.SPD);
         for (int i = 0; i < numPokemon; i++) {
             PokemonView myPokemon = myTeam.getPokemonView(i);
+            if (myPokemon.hasFainted()) {
+                continue;
+            }
             int mySpeed = myPokemon.getCurrentStat(Stat.SPD);
             // find a pokemon that can out speed the opponent
             if (mySpeed > opSpeed && !myPokemon.hasFainted()) {
