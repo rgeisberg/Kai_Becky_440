@@ -13,6 +13,7 @@ import edu.bu.pas.pokemon.agents.NeuralQAgent;
 import edu.bu.pas.pokemon.agents.senses.SensorArray;
 import edu.bu.pas.pokemon.core.Battle.BattleView;
 import edu.bu.pas.pokemon.core.Move.MoveView;
+import edu.bu.pas.pokemon.core.SwitchMove.SwitchMoveView;
 import edu.bu.pas.pokemon.core.Team.TeamView;
 import edu.bu.pas.pokemon.core.DamageEquation;
 import edu.bu.pas.pokemon.core.Move;
@@ -210,6 +211,9 @@ public class PolicyAgent
             int mySpeed = myPokemon.getCurrentStat(Stat.SPD);
             // find a pokemon that can out speed the opponent
             if (mySpeed > opSpeed && !myPokemon.hasFainted()) {
+                if (myPokemon.hasFainted()) {
+                    continue;
+                }
                 List<MoveView> myMoves = myPokemon.getAvailableMoves();
                 for (MoveView moveView : myMoves) {
                     if (moveView.getPower() == null) {
@@ -344,19 +348,25 @@ public class PolicyAgent
         // one shot
         int switchIdx = outSpeedKill(oppPokemon, myTeam);
         if (switchIdx != -1) {
-            return switchIdx;
+            if (!myTeam.getPokemonView(switchIdx).hasFainted()) {
+                return switchIdx;
+            }
         }
 
         switchIdx = slowKill(oppPokemon, myTeam);
         if (switchIdx != -1) {
-            return switchIdx;
+            if (!myTeam.getPokemonView(switchIdx).hasFainted()) {
+                return switchIdx;
+            }
         }
 
         // otherwise just pick a good type match up (that is not fainted)
         switchIdx = typeMatchupSwitch(oppPokemon, myTeam);
 
         if (switchIdx != -1) {
-            return switchIdx;
+            if (!myTeam.getPokemonView(switchIdx).hasFainted()) {
+                return switchIdx;
+            }
         }
 
         // if we have no good options at all just pick the first non-fainted pokemon
@@ -368,6 +378,7 @@ public class PolicyAgent
             }
 
         }
+
         return switchIdx;
     }
 
@@ -414,6 +425,14 @@ public class PolicyAgent
         if (rng.nextDouble() < epsilon) {
             List<MoveView> legalMoves = view.getTeam1View().getActivePokemonView().getAvailableMoves();
             return legalMoves.get(rng.nextInt(legalMoves.size()));
+        }
+        MoveView sv = this.argmax(view);
+        if (sv instanceof SwitchMoveView) {
+            int ind = ((SwitchMoveView) sv).getNewActiveIdx();
+            if (view.getTeam1View().getPokemonView(ind).hasFainted()) {
+                List<MoveView> legalMoves = view.getTeam1View().getActivePokemonView().getAvailableMoves();
+                return legalMoves.get(rng.nextInt(legalMoves.size()));
+            }
         }
         return this.argmax(view);
     }
